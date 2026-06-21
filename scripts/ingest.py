@@ -76,7 +76,7 @@ def main():
         chunks = dividir_en_chunks(texto)
         print(f"  -> {len(chunks)} chunks generados.")
 
-        coleccion.add(
+        coleccion.upsert(
             documents=chunks,
             ids=[f"{nombre}_chunk_{i}" for i in range(len(chunks))],
             metadatas=[{"fuente": nombre, "chunk": i} for i in range(len(chunks))],
