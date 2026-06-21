@@ -527,3 +527,7 @@ MigrationBackup/
 .ionide/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,vs
+
+# Proyecto
+chroma_db/
+docs/
