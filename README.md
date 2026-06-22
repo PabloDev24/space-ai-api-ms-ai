@@ -25,7 +25,7 @@ Este microservicio implementa una **arquitectura RAG (Retrieval-Augmented Genera
 - **LLM:** Multi-proveedor — Groq, OpenAI o Google Gemini (configurable con `PROVEEDOR`).
 - **Embeddings:** Multi-proveedor — local (fastembed/ONNX), OpenAI o Gemini (configurable con `EMBEDDING_PROVIDER`).
 - **Pipeline RAG:** LangChain para chunking inteligente por estructura de documento, con fragmentación por tokens (~512 tokens, 50 de solapamiento) para respetar la ventana del LLM.
-- **Parseo de PDFs:** `pymupdf4llm` convierte cualquier PDF a Markdown preservando tablas y secciones.
+- **Parseo de PDFs:** `pymupdf4llm` para documentos de prosa (Markdown) y `pdfplumber` para tablas de horario (extracción por celdas alineadas).
 - **Base de conocimiento:** ChromaDB como vector store persistente.
 - **Configuración:** Pydantic Settings v2 con soporte `.env`.
 - **Contenedores:** Docker & Docker Compose.
@@ -132,7 +132,12 @@ curl -X POST http://localhost:8000/ingest \
   -F "archivo=@docs/IDGS901.pdf;type=application/pdf"
 ```
 
-En ambos casos el pipeline convierte cada PDF a Markdown inteligente, lo fragmenta por secciones y por tamaño (~512 tokens con 50 de solapamiento, medido con `tiktoken` para no rebasar la ventana del LLM) y guarda los vectores en ChromaDB con metadatos de origen (`fuente`, `grupo`). La re-subida de un mismo archivo es idempotente: reemplaza sus chunks anteriores. La respuesta del `/health` muestra cuántos chunks están disponibles.
+El pipeline detecta automáticamente el tipo de PDF y lo procesa de la forma adecuada:
+
+- **Horarios de grupo** (cuadrículas con días de la semana): se extraen con `pdfplumber` —que lee la tabla con columnas alineadas— y cada clase se convierte en una frase natural (ej. *"Lunes 17:10-18:00: Desarrollo WEB Integral (edificio D, aula DM; profesor IPM)"*). Así el LLM responde con precisión sin tener que interpretar una cuadrícula.
+- **Resto de documentos** (carreras, servicios escolares, planes de estudio, etc.): se convierten a Markdown inteligente con `pymupdf4llm`, se fragmentan por secciones y por tamaño (~512 tokens con 50 de solapamiento, medido con `tiktoken` para no rebasar la ventana del LLM).
+
+En ambos casos los vectores se guardan en ChromaDB con metadatos de origen (`fuente`, `grupo`; los horarios añaden `tipo: horario`). La re-subida de un mismo archivo es idempotente: reemplaza sus chunks anteriores. La respuesta del `/health` muestra cuántos chunks están disponibles.
 
 > ⚠️ Si cambias `EMBEDDING_PROVIDER`, debes borrar `chroma_db/` y re-indexar — los vectores de distintos modelos no son comparables.
 
