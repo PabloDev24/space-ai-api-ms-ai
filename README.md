@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python%203.14-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Google Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B35?style=for-the-badge&logo=databricks&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
@@ -19,15 +19,16 @@ Microservicio de inteligencia artificial del ecosistema **Space AI**, diseñado 
 
 ## 🚀 Tecnologías y Arquitectura
 
-Este microservicio implementa una **arquitectura RAG (Retrieval-Augmented Generation)** que combina búsqueda semántica sobre documentos con un modelo de lenguaje de última generación:
+Este microservicio implementa una **arquitectura RAG (Retrieval-Augmented Generation)** con proveedor de LLM y embeddings intercambiables via variables de entorno:
 
-- **Framework:** FastAPI 0.136 con Python 3.14.
-- **LLM:** Google Gemini 2.5 Flash vía `google-generativeai`.
+- **Framework:** FastAPI con Python 3.14.
+- **LLM:** Multi-proveedor — Groq, OpenAI o Google Gemini (configurable con `PROVEEDOR`).
+- **Embeddings:** Multi-proveedor — local (fastembed/ONNX), OpenAI o Gemini (configurable con `EMBEDDING_PROVIDER`).
+- **Pipeline RAG:** LangChain para chunking inteligente por estructura de documento.
+- **Parseo de PDFs:** `pymupdf4llm` convierte cualquier PDF a Markdown preservando tablas y secciones.
 - **Base de conocimiento:** ChromaDB como vector store persistente.
-- **Ingesta:** Pipeline PDF → chunks → embeddings con `pypdf`.
 - **Configuración:** Pydantic Settings v2 con soporte `.env`.
 - **Contenedores:** Docker & Docker Compose.
-- **Monitoreo:** Sentry SDK integrado.
 
 ---
 
@@ -45,25 +46,42 @@ Este microservicio implementa una **arquitectura RAG (Retrieval-Augmented Genera
 
 ### 2. Variables de entorno
 
-Copia el archivo de ejemplo y configura tu API Key de Gemini:
+Copia el archivo de ejemplo y configura según el proveedor que vayas a usar:
 
 ```bash
 cp .env.example .env
 ```
 
+**LLM:**
+
 | Variable | Requerida | Default | Descripción |
 |---|---|---|---|
-| `GEMINI_API_KEY` | ✅ | — | API Key de Google AI Studio |
+| `PROVEEDOR` | ✅ | `gemini` | Proveedor LLM: `groq` \| `openai` \| `gemini` |
+| `GROQ_API_KEY` | Si `PROVEEDOR=groq` | — | API Key de [console.groq.com](https://console.groq.com) |
+| `OPENAI_API_KEY` | Si `PROVEEDOR=openai` | — | API Key de OpenAI |
+| `GEMINI_API_KEY` | Si `PROVEEDOR=gemini` | — | API Key de Google AI Studio |
+| `MODELO` | ❌ | auto | Sobreescribe el modelo default del proveedor |
+
+**Embeddings:**
+
+| Variable | Requerida | Default | Descripción |
+|---|---|---|---|
+| `EMBEDDING_PROVIDER` | ❌ | `local` | `local` \| `openai` \| `gemini` |
+| `EMBEDDING_MODEL` | ❌ | auto | Sobreescribe el modelo default de embeddings |
+
+**RAG:**
+
+| Variable | Requerida | Default | Descripción |
+|---|---|---|---|
 | `CHROMA_PATH` | ❌ | `chroma_db` | Ruta de la base vectorial persistente |
 | `COLLECTION_NAME` | ❌ | `documentos` | Nombre de la colección en ChromaDB |
-| `N_RESULTADOS` | ❌ | `5` | Chunks recuperados por consulta |
-| `MODELO_GEMINI` | ❌ | `gemini-2.5-flash` | Modelo Gemini a usar |
+| `N_RESULTADOS` | ❌ | `8` | Chunks recuperados por consulta |
+
+> ℹ️ Para pruebas gratuitas usa `PROVEEDOR=groq` (free tier en [console.groq.com](https://console.groq.com)) y `EMBEDDING_PROVIDER=local` (corre en tu máquina, sin API key).
 
 ---
 
 ### 3. Método A: Docker (Recomendado)
-
-La forma más rápida para levantar el servicio con la base de conocimiento persistente:
 
 ```bash
 # Levantar el servicio
@@ -77,8 +95,6 @@ curl http://localhost:8000/health
 
 ### 4. Método B: Ejecución local
 
-Ideal para desarrollo activo y depuración:
-
 ```bash
 # 1. Crear entorno virtual e instalar dependencias
 python -m venv .venv
@@ -91,26 +107,25 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-> ℹ️ **Nota:** En ambos métodos, sin documentos indexados el servicio responde usando solo el conocimiento del modelo Gemini, sin contexto institucional. Consulta la sección [Indexar documentos](#-indexar-documentos-rag) para cargar tu base de conocimiento.
-
 ---
 
 ### 5. Verificar el estado
 
-Abre **[http://localhost:8000/docs](http://localhost:8000/docs)** para explorar la documentación interactiva de la API (Swagger UI).
+Abre **[http://localhost:8000/docs](http://localhost:8000/docs)** para explorar la documentación interactiva (Swagger UI).
 
 ---
 
 ## 📚 Indexar Documentos (RAG)
 
-El microservicio enriquece sus respuestas con información de documentos PDF institucionales. Para indexarlos:
+El microservicio enriquece sus respuestas con PDFs institucionales. Coloca los archivos en `docs/` e indexa:
 
 ```bash
-# Coloca tus PDFs en una carpeta (ej. docs/) y ejecuta:
 python scripts/ingest.py docs/
 ```
 
-El script extrae el texto de cada PDF, lo divide en chunks con solapamiento y los almacena en ChromaDB. La respuesta del `/health` muestra cuántos chunks están disponibles.
+El pipeline convierte cada PDF a Markdown inteligente, lo fragmenta por secciones y guarda los vectores en ChromaDB. La respuesta del `/health` muestra cuántos chunks están disponibles.
+
+> ⚠️ Si cambias `EMBEDDING_PROVIDER`, debes borrar `chroma_db/` y re-indexar — los vectores de distintos modelos no son comparables.
 
 ---
 
@@ -131,8 +146,9 @@ El script extrae el texto de cada PDF, lo divide en chunks con solapamiento y lo
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/health` | Estado del servicio y base de conocimiento |
+| `GET` | `/health` | Estado del servicio y chunks disponibles |
 | `POST` | `/chat` | Enviar una pregunta al asistente |
+| `GET` | `/debug/rag?pregunta=...` | Ver qué chunks recupera el RAG para una pregunta |
 | `GET` | `/docs` | Documentación interactiva Swagger |
 
 **Ejemplo de consulta:**
@@ -140,7 +156,7 @@ El script extrae el texto de cada PDF, lo divide en chunks con solapamiento y lo
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"pregunta": "¿Dónde está el edificio de rectoría?"}'
+  -d '{"pregunta": "¿Qué carreras hay en la universidad?"}'
 ```
 
 ---
@@ -150,18 +166,19 @@ curl -X POST http://localhost:8000/chat \
 ```
 space-ai-api-ms-ai/
 ├── app/
-│   ├── main.py             → Inicialización de FastAPI y registro de routers
-│   ├── config.py           → Configuración vía Pydantic Settings (.env)
+│   ├── main.py                → Inicialización de FastAPI y registro de routers
+│   ├── config.py              → Configuración vía Pydantic Settings (.env)
 │   ├── routers/
-│   │   ├── chat.py         → Endpoint POST /chat (consulta al asistente)
-│   │   └── health.py       → Endpoint GET /health (estado del servicio)
+│   │   ├── chat.py            → Endpoint POST /chat (consulta al asistente)
+│   │   └── health.py          → Endpoints GET /health y GET /debug/rag
 │   └── services/
-│       ├── llm.py          → Cliente Gemini con instrucción de sistema
-│       └── rag.py          → Búsqueda semántica en ChromaDB
+│       ├── llm.py             → Factory multi-proveedor (Groq / OpenAI / Gemini)
+│       ├── embeddings.py      → Factory de embeddings (local / OpenAI / Gemini)
+│       └── rag.py             → Búsqueda semántica con filtro por grupo
 ├── scripts/
-│   └── ingest.py           → Pipeline de indexación PDF → ChromaDB
-├── docs/                   → Carpeta de PDFs institucionales (gitignored)
-├── chroma_db/              → Base vectorial persistente (gitignored)
+│   └── ingest.py              → Pipeline PDF → Markdown → chunks → ChromaDB
+├── docs/                      → PDFs institucionales (gitignored, agregar manualmente)
+├── chroma_db/                 → Base vectorial persistente (gitignored)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
