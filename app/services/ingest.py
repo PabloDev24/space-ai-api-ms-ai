@@ -47,7 +47,40 @@ def _es_cabecera_horario(fila: list) -> bool:
     return sum(1 for dia in DIAS_SEMANA if dia in texto) >= 2
 
 
-def _formatear_celda(valor: str) -> str:
+def _normalizar_materia(texto: str) -> str:
+    """Normaliza el nombre de una materia para emparejar horario y tabla de docentes."""
+    return re.sub(r"\s+", " ", str(texto).replace("\n", " ")).strip().lower()
+
+
+def _extraer_docentes(tablas: list) -> dict[str, str]:
+    """
+    Construye un mapa {materia normalizada -> nombre completo del docente}.
+
+    El horario solo lleva las siglas del profesor en cada celda (ej. "IPM"),
+    pero el PDF incluye una tabla aparte (sección de exámenes) que lista cada
+    docente con su nombre completo y la asignatura que imparte. El puente
+    fiable entre ambas es la asignatura, no la sigla.
+    """
+    mapa: dict[str, str] = {}
+    for tabla in tablas:
+        if not tabla or not tabla[0]:
+            continue
+        cabecera = [str(c).strip().lower() if c else "" for c in tabla[0]]
+        if "docente" not in cabecera or "asignatura" not in cabecera:
+            continue
+        idx_doc = cabecera.index("docente")
+        idx_asig = cabecera.index("asignatura")
+        for fila in tabla[1:]:
+            if idx_doc >= len(fila) or idx_asig >= len(fila):
+                continue
+            nombre = str(fila[idx_doc] or "").replace("\n", " ").strip()
+            materia = _normalizar_materia(fila[idx_asig] or "")
+            if nombre and nombre != "-" and materia:
+                mapa[materia] = nombre
+    return mapa
+
+
+def _formatear_celda(valor: str, docentes: dict[str, str] | None = None) -> str:
     """
     Convierte una celda de horario en una frase legible.
 
@@ -57,7 +90,10 @@ def _formatear_celda(valor: str) -> str:
         3. Nomenclatura del profesor (ej. "IPM"); si no hay profesor, es "-"
 
     Ejemplo: "Desarrollo WEB Integral\\nD, DM\\nIPM"
-        → "Desarrollo WEB Integral (edificio D, aula DM; profesor IPM)"
+        → "Desarrollo WEB Integral (edificio D, aula DM; profesor Ismael Perez Mena (IPM))"
+
+    Si `docentes` mapea materia→nombre completo, se resuelve el nombre del
+    profesor a partir de la materia (las siglas del horario son ambiguas).
 
     El campo del profesor SÍ se conserva aunque sea "-" para no desplazar las
     posiciones: la última línea siempre es el profesor, la penúltima el aula.
@@ -69,7 +105,7 @@ def _formatear_celda(valor: str) -> str:
         return lineas[0] if lineas[0] != "-" else ""
 
     # Orden fijo: [...materia, edificio_aula, profesor]
-    profesor = lineas[-1]
+    siglas_profesor = lineas[-1]
     edificio_aula = lineas[-2]
     materia = " ".join(lineas[:-2]) if len(lineas) > 2 else lineas[0]
 
@@ -81,8 +117,12 @@ def _formatear_celda(valor: str) -> str:
             detalle.append(f"edificio {partes_ubicacion[0]}, aula {partes_ubicacion[1]}")
         else:
             detalle.append(f"aula {edificio_aula}")
-    if profesor and profesor != "-":
-        detalle.append(f"profesor {profesor}")
+    if siglas_profesor and siglas_profesor != "-":
+        nombre = (docentes or {}).get(_normalizar_materia(materia))
+        if nombre:
+            detalle.append(f"profesor {nombre} ({siglas_profesor})")
+        else:
+            detalle.append(f"profesor {siglas_profesor}")
 
     frase = materia.strip()
     if detalle:
@@ -90,7 +130,7 @@ def _formatear_celda(valor: str) -> str:
     return frase
 
 
-def _horario_a_frases(tabla: list, grupo: str) -> list[str]:
+def _horario_a_frases(tabla: list, grupo: str, docentes: dict[str, str] | None = None) -> list[str]:
     """
     Convierte una tabla de horario (extraída por pdfplumber) en frases naturales,
     una por clase. Evita que el LLM tenga que alinear columnas de una cuadrícula.
@@ -124,7 +164,7 @@ def _horario_a_frases(tabla: list, grupo: str) -> list[str]:
             valor = str(fila[idx]).strip() if fila[idx] else ""
             if valor in _CELDA_VACIA:
                 continue
-            clase = _formatear_celda(valor)
+            clase = _formatear_celda(valor, docentes)
             if clase:
                 frases.append(f"{pref}{dia} {horas}: {clase}.")
     return frases
@@ -141,9 +181,13 @@ def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
     """
     frases: list[str] = []
     with pdfplumber.open(ruta) as pdf:
-        for pagina in pdf.pages:
-            for tabla in pagina.extract_tables():
-                frases.extend(_horario_a_frases(tabla, grupo))
+        tablas = [tabla for pagina in pdf.pages for tabla in pagina.extract_tables()]
+
+    # La tabla de docentes mapea cada materia a su profesor con nombre completo,
+    # que luego resolvemos al formatear las siglas de cada clase del horario.
+    docentes = _extraer_docentes(tablas)
+    for tabla in tablas:
+        frases.extend(_horario_a_frases(tabla, grupo, docentes))
 
     return [
         Document(page_content=frase, metadata={"fuente": nombre, "grupo": grupo, "tipo": "horario"})
