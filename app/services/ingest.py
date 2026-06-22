@@ -15,8 +15,11 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharac
 from app.config import settings
 from app.services.embeddings import get_embeddings
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
+# Medidos en TOKENS (no caracteres) para respetar el límite de la ventana del LLM.
+# 512 tokens es lo bastante grande para contener una sección o tabla de horario
+# completa sin partirla, soportando preguntas y respuestas amplias.
+CHUNK_SIZE = 512
+CHUNK_OVERLAP = 50
 
 HEADERS_TO_SPLIT = [
     ("#", "h1"),
@@ -43,7 +46,8 @@ def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
     )
     docs_por_seccion = md_splitter.split_text(md_texto)
 
-    char_splitter = RecursiveCharacterTextSplitter(
+    # Conteo por tokens (tiktoken) para no rebasar la ventana del LLM.
+    char_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
         separators=["\n\n", "\n", ". ", " ", ""],
