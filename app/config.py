@@ -2,11 +2,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    gemini_api_key: str
+    # Proveedor activo: gemini | groq | openai
+    proveedor: str = "gemini"
+
+    # API Keys (solo la del proveedor activo es requerida)
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+    openai_api_key: str = ""
+
+    # Modelo (si no se especifica se usa el default del proveedor)
+    modelo: str = ""
+    modelo_gemini: str = "gemini-2.5-flash"  # compatibilidad con .env existente
+
+    # Embeddings: local | openai | gemini
+    embedding_provider: str = "local"
+    embedding_model: str = ""  # usa el default del proveedor si está vacío
+
+    # RAG
     chroma_path: str = "chroma_db"
     collection_name: str = "documentos"
-    n_resultados: int = 5
-    modelo_gemini: str = "gemini-2.5-flash"
+    n_resultados: int = 8
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
