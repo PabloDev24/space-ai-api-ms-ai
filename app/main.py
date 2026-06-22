@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import chat, health
+from app.routers import chat, health, ingest
 
 app = FastAPI(
     title="Punto de Información Inteligente - UT León",
@@ -10,3 +10,4 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(chat.router)
+app.include_router(ingest.router)
