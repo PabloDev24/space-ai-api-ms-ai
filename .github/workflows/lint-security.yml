@@ -1,0 +1,57 @@
+name: Lint & Security
+
+on:
+  push:
+    branches: [main, SPIA-*]
+    paths:
+      - "app/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "requirements.txt"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "requirements.txt"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Ruff Linter
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run Ruff lint
+        run: ruff check app/ scripts/
+
+      - name: Check code formatting
+        run: ruff format app/ scripts/ --check
+
+  security:
+    runs-on: ubuntu-latest
+    name: Bandit Security Scan
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Run Bandit security scan
+        run: bandit -r app/ scripts/ -q
