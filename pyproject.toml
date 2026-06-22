@@ -1,0 +1,35 @@
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (imports no usados, variables sin definir, etc.)
+    "I",   # isort (orden de imports)
+    "N",   # pep8-naming (convenciones de nombres)
+    "B",   # flake8-bugbear (bugs comunes y malas prácticas)
+    "UP",  # pyupgrade (moderniza sintaxis a Python 3.14)
+    "S",   # flake8-bandit (seguridad básica)
+    "RUF", # reglas propias de Ruff
+]
+ignore = [
+    "S101",  # uso de assert (ok en tests)
+    "B008",  # llamadas a funciones en argumentos default (patrón de FastAPI: Depends())
+    "N999",  # nombre de módulo inválido (algunos archivos del proyecto usan guiones)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts: load_dotenv() debe ejecutarse antes de importar app.config (E402 intencional)
+# y pueden usar print() sin restricción (T201)
+"scripts/*" = ["E402", "S", "T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.bandit]
+exclude_dirs = [".venv", "chroma_db"]
+skips = ["B101"]  # assert (igual que en ruff, ok en tests)

@@ -1,4 +1,5 @@
-from typing import Callable
+from collections.abc import Callable
+
 from app.config import settings
 
 _INSTRUCCION_SISTEMA = """
@@ -82,8 +83,7 @@ def _init() -> Callable[[str], str]:
         return _build_openai_compatible(settings.openai_api_key, None)
 
     raise ValueError(
-        f"Proveedor '{proveedor}' no reconocido. "
-        f"Opciones válidas: gemini, groq, openai"
+        f"Proveedor '{proveedor}' no reconocido. Opciones válidas: gemini, groq, openai"
     )
 
 

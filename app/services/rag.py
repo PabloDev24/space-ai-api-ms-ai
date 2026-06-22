@@ -1,9 +1,11 @@
 import re
+
 from langchain_chroma import Chroma
+
 from app.config import settings
 from app.services.embeddings import get_embeddings
 
-_PATRON_GRUPO = re.compile(r'\b(?:IDGS|grupo\s*)?(\d{3,4})\b', re.IGNORECASE)
+_PATRON_GRUPO = re.compile(r"\b(?:IDGS|grupo\s*)?(\d{3,4})\b", re.IGNORECASE)
 
 
 def _detectar_grupo(pregunta: str) -> str | None:
@@ -13,9 +15,12 @@ def _detectar_grupo(pregunta: str) -> str | None:
 
 def _load_vectorstore() -> Chroma | None:
     import os
+
     if not os.path.isdir(settings.chroma_path):
-        print(f"[Aviso] No se encontró '{settings.chroma_path}'. "
-              "Indexa documentos con scripts/ingest.py primero.")
+        print(
+            f"[Aviso] No se encontró '{settings.chroma_path}'. "
+            "Indexa documentos con scripts/ingest.py primero."
+        )
         return None
     try:
         vs = Chroma(

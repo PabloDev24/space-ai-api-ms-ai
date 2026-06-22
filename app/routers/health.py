@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.services.rag import collection_info, buscar_contexto
+
+from app.services.rag import buscar_contexto, collection_info
 
 router = APIRouter(tags=["status"])
 

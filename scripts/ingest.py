@@ -13,6 +13,7 @@ import os
 import re
 import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -40,7 +41,7 @@ HEADERS_TO_SPLIT = [
 
 def _extraer_grupo(nombre_archivo: str) -> str:
     """Extrae el identificador numérico de grupo del nombre del archivo."""
-    match = re.search(r'(\d{3,4})', nombre_archivo)
+    match = re.search(r"(\d{3,4})", nombre_archivo)
     return match.group(1) if match else ""
 
 
@@ -80,10 +81,12 @@ def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
 
     # 4. Añadir metadatos de origen a cada chunk
     for chunk in chunks:
-        chunk.metadata.update({
-            "fuente": nombre,
-            "grupo": grupo,
-        })
+        chunk.metadata.update(
+            {
+                "fuente": nombre,
+                "grupo": grupo,
+            }
+        )
 
     return chunks
 
@@ -130,8 +133,8 @@ def main():
         # Eliminar chunks anteriores del mismo archivo antes de reinsertar
         try:
             vectorstore.delete(where={"fuente": nombre})
-        except Exception:
-            pass  # colección nueva, no hay nada que borrar
+        except Exception:  # nosec B110 — colección nueva, no hay nada que borrar
+            pass
 
         vectorstore.add_documents(chunks)
         total += len(chunks)

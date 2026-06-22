@@ -1,8 +1,10 @@
 from datetime import datetime
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.services.rag import buscar_contexto
+
 from app.services.llm import generate
+from app.services.rag import buscar_contexto
 
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
@@ -44,4 +46,4 @@ def chat(request: ChatRequest):
     try:
         return ChatResponse(respuesta=generate(prompt))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Error al consultar el LLM: {e}")
+        raise HTTPException(status_code=502, detail=f"Error al consultar el LLM: {e}") from e
