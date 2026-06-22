@@ -10,7 +10,6 @@ secciones) y luego LangChain para fragmentar por estructura semántica.
 """
 
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -18,77 +17,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import pymupdf4llm
 from langchain_chroma import Chroma
-from langchain_core.documents import Document
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
-# Importar embeddings después de load_dotenv para que las variables de entorno estén disponibles
+# Importar después de load_dotenv para que las variables de entorno estén disponibles
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.config import settings
 from app.services.embeddings import get_embeddings
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
-
-# Encabezados Markdown que definen límites de contexto
-HEADERS_TO_SPLIT = [
-    ("#", "h1"),
-    ("##", "h2"),
-    ("###", "h3"),
-]
-
-
-def _extraer_grupo(nombre_archivo: str) -> str:
-    """Extrae el identificador numérico de grupo del nombre del archivo."""
-    match = re.search(r"(\d{3,4})", nombre_archivo)
-    return match.group(1) if match else ""
-
-
-def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
-    """
-    Convierte un PDF a chunks de LangChain Documents.
-
-    pymupdf4llm convierte el PDF completo a Markdown preservando:
-    - Tablas como tablas Markdown (con | columnas | y --- separadores)
-    - Encabezados con # según jerarquía real del documento
-    - Texto en columnas correctamente reordenado
-
-    Luego LangChain fragmenta primero por encabezados (contexto semántico)
-    y después por tamaño de caracteres si el fragmento es muy largo.
-    """
-    grupo = _extraer_grupo(nombre)
-
-    # 1. PDF → Markdown inteligente
-    md_texto = pymupdf4llm.to_markdown(ruta)
-    if not md_texto.strip():
-        return []
-
-    # 2. Fragmentar por encabezados (mantiene contexto de sección)
-    md_splitter = MarkdownHeaderTextSplitter(
-        headers_to_split_on=HEADERS_TO_SPLIT,
-        strip_headers=False,  # mantiene el encabezado dentro del chunk
-    )
-    docs_por_seccion = md_splitter.split_text(md_texto)
-
-    # 3. Fragmentar secciones largas por caracteres con solapamiento
-    char_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
-    )
-    chunks = char_splitter.split_documents(docs_por_seccion)
-
-    # 4. Añadir metadatos de origen a cada chunk
-    for chunk in chunks:
-        chunk.metadata.update(
-            {
-                "fuente": nombre,
-                "grupo": grupo,
-            }
-        )
-
-    return chunks
+# El pipeline de procesamiento vive en app.services.ingest (única fuente de
+# verdad). Este script solo orquesta el recorrido por lote de una carpeta.
+from app.services.ingest import procesar_pdf
 
 
 def main():

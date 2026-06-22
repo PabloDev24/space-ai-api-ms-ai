@@ -24,8 +24,8 @@ Este microservicio implementa una **arquitectura RAG (Retrieval-Augmented Genera
 - **Framework:** FastAPI con Python 3.14.
 - **LLM:** Multi-proveedor — Groq, OpenAI o Google Gemini (configurable con `PROVEEDOR`).
 - **Embeddings:** Multi-proveedor — local (fastembed/ONNX), OpenAI o Gemini (configurable con `EMBEDDING_PROVIDER`).
-- **Pipeline RAG:** LangChain para chunking inteligente por estructura de documento.
-- **Parseo de PDFs:** `pymupdf4llm` convierte cualquier PDF a Markdown preservando tablas y secciones.
+- **Pipeline RAG:** LangChain para chunking inteligente por estructura de documento, con fragmentación por tokens (~512 tokens, 50 de solapamiento) para respetar la ventana del LLM.
+- **Parseo de PDFs:** `pymupdf4llm` para documentos de prosa (Markdown) y `pdfplumber` para tablas de horario (extracción por celdas alineadas).
 - **Base de conocimiento:** ChromaDB como vector store persistente.
 - **Configuración:** Pydantic Settings v2 con soporte `.env`.
 - **Contenedores:** Docker & Docker Compose.
@@ -117,13 +117,27 @@ Abre **[http://localhost:8000/docs](http://localhost:8000/docs)** para explorar 
 
 ## 📚 Indexar Documentos (RAG)
 
-El microservicio enriquece sus respuestas con PDFs institucionales. Coloca los archivos en `docs/` e indexa:
+El microservicio enriquece sus respuestas con PDFs institucionales. Hay dos formas de indexar:
+
+**Opción A · Por lote (CLI):** coloca los archivos en `docs/` e indexa toda la carpeta:
 
 ```bash
 python scripts/ingest.py docs/
 ```
 
-El pipeline convierte cada PDF a Markdown inteligente, lo fragmenta por secciones y guarda los vectores en ChromaDB. La respuesta del `/health` muestra cuántos chunks están disponibles.
+**Opción B · Subida individual (endpoint):** sube un PDF al vuelo vía `POST /ingest`:
+
+```bash
+curl -X POST http://localhost:8000/ingest \
+  -F "archivo=@docs/IDGS901.pdf;type=application/pdf"
+```
+
+El pipeline detecta automáticamente el tipo de PDF y lo procesa de la forma adecuada:
+
+- **Horarios de grupo** (cuadrículas con días de la semana): se extraen con `pdfplumber` —que lee la tabla con columnas alineadas— y cada clase se convierte en una frase natural (ej. *"Lunes 17:10-18:00: Desarrollo WEB Integral (edificio D, aula DM; profesor IPM)"*). Así el LLM responde con precisión sin tener que interpretar una cuadrícula.
+- **Resto de documentos** (carreras, servicios escolares, planes de estudio, etc.): se convierten a Markdown inteligente con `pymupdf4llm`, se fragmentan por secciones y por tamaño (~512 tokens con 50 de solapamiento, medido con `tiktoken` para no rebasar la ventana del LLM).
+
+En ambos casos los vectores se guardan en ChromaDB con metadatos de origen (`fuente`, `grupo`; los horarios añaden `tipo: horario`). La re-subida de un mismo archivo es idempotente: reemplaza sus chunks anteriores. La respuesta del `/health` muestra cuántos chunks están disponibles.
 
 > ⚠️ Si cambias `EMBEDDING_PROVIDER`, debes borrar `chroma_db/` y re-indexar — los vectores de distintos modelos no son comparables.
 
@@ -137,7 +151,8 @@ El pipeline convierte cada PDF a Markdown inteligente, lo fragmenta por seccione
 | `docker compose logs -f api` | Ver logs de la API en tiempo real |
 | `docker compose down` | Detiene y elimina los contenedores |
 | `uvicorn main:app --reload` | Levanta la API en modo desarrollo con hot-reload |
-| `python scripts/ingest.py <carpeta>` | Indexa PDFs en la base de conocimiento |
+| `python scripts/ingest.py <carpeta>` | Indexa por lote los PDFs de una carpeta |
+| `curl -X POST http://localhost:8000/ingest -F "archivo=@<ruta.pdf>"` | Sube e indexa un PDF individual |
 | `curl http://localhost:8000/health` | Verifica estado y chunks disponibles |
 
 ---
@@ -148,6 +163,7 @@ El pipeline convierte cada PDF a Markdown inteligente, lo fragmenta por seccione
 |---|---|---|
 | `GET` | `/health` | Estado del servicio y chunks disponibles |
 | `POST` | `/chat` | Enviar una pregunta al asistente |
+| `POST` | `/ingest` | Subir un PDF e indexarlo en la base vectorial (`multipart/form-data`, campo `archivo`) |
 | `GET` | `/debug/rag?pregunta=...` | Ver qué chunks recupera el RAG para una pregunta |
 | `GET` | `/docs` | Documentación interactiva Swagger |
 
@@ -170,13 +186,15 @@ space-ai-api-ms-ai/
 │   ├── config.py              → Configuración vía Pydantic Settings (.env)
 │   ├── routers/
 │   │   ├── chat.py            → Endpoint POST /chat (consulta al asistente)
+│   │   ├── ingest.py          → Endpoint POST /ingest (subida e indexado de PDFs)
 │   │   └── health.py          → Endpoints GET /health y GET /debug/rag
 │   └── services/
 │       ├── llm.py             → Factory multi-proveedor (Groq / OpenAI / Gemini)
 │       ├── embeddings.py      → Factory de embeddings (local / OpenAI / Gemini)
+│       ├── ingest.py          → Pipeline de indexado (PDF → Markdown → chunks → ChromaDB)
 │       └── rag.py             → Búsqueda semántica con filtro por grupo
 ├── scripts/
-│   └── ingest.py              → Pipeline PDF → Markdown → chunks → ChromaDB
+│   └── ingest.py              → CLI de indexado por lote (mismo pipeline que el servicio)
 ├── docs/                      → PDFs institucionales (gitignored, agregar manualmente)
 ├── chroma_db/                 → Base vectorial persistente (gitignored)
 ├── Dockerfile
