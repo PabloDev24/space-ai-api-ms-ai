@@ -24,8 +24,8 @@ Este microservicio implementa una **arquitectura RAG (Retrieval-Augmented Genera
 - **Framework:** FastAPI con Python 3.14.
 - **LLM:** Multi-proveedor — Groq, OpenAI o Google Gemini (configurable con `PROVEEDOR`).
 - **Embeddings:** Multi-proveedor — local (fastembed/ONNX), OpenAI o Gemini (configurable con `EMBEDDING_PROVIDER`).
-- **Pipeline RAG:** LangChain para chunking inteligente por estructura de documento, con fragmentación por tokens (~512 tokens, 50 de solapamiento) para respetar la ventana del LLM.
-- **Parseo de PDFs:** `pymupdf4llm` para documentos de prosa (Markdown) y `pdfplumber` para tablas de horario (extracción por celdas alineadas).
+- **Pipeline RAG:** Docling + LangChain para normalizar PDFs universitarios variados a chunks estructurales, con fragmentación por tokens (~512 tokens) y metadata de origen/sección/tipo.
+- **Parseo de PDFs:** Docling como parser principal layout-aware con OCR, tablas, listas, títulos y párrafos; `pdfplumber` queda como fallback especializado para horarios en cuadrícula.
 - **Base de conocimiento:** ChromaDB como vector store persistente.
 - **Configuración:** Pydantic Settings v2 con soporte `.env`.
 - **Contenedores:** Docker & Docker Compose.
@@ -76,6 +76,17 @@ cp .env.example .env
 | `CHROMA_PATH` | ❌ | `chroma_db` | Ruta de la base vectorial persistente |
 | `COLLECTION_NAME` | ❌ | `documentos` | Nombre de la colección en ChromaDB |
 | `N_RESULTADOS` | ❌ | `8` | Chunks recuperados por consulta |
+
+**Parsing/OCR de PDFs:**
+
+| Variable | Requerida | Default | Descripción |
+|---|---|---|---|
+| `DOCLING_ENABLE_OCR` | ❌ | `true` | Activa OCR automático para PDFs escaneados |
+| `DOCLING_ENABLE_TABLES` | ❌ | `true` | Activa reconocimiento estructural de tablas |
+| `DOCLING_OCR_LANGS` | ❌ | `es,en` | Idiomas para OCR, separados por coma |
+| `DOCLING_OCR_USE_GPU` | ❌ | `false` | Permite usar GPU en OCR si el entorno lo soporta |
+| `DOCLING_NUM_THREADS` | ❌ | `4` | Hilos usados por Docling |
+| `DOCLING_CHUNK_SIZE` | ❌ | `512` | Tamaño objetivo de chunks para HybridChunker |
 
 > ℹ️ Para pruebas gratuitas usa `PROVEEDOR=groq` (free tier en [console.groq.com](https://console.groq.com)) y `EMBEDDING_PROVIDER=local` (corre en tu máquina, sin API key).
 
@@ -132,14 +143,17 @@ curl -X POST http://localhost:8000/ingest \
   -F "archivo=@docs/IDGS901.pdf;type=application/pdf"
 ```
 
-El pipeline detecta automáticamente el tipo de PDF y lo procesa de la forma adecuada:
+El pipeline usa Docling como parser principal para documentos universitarios variados: carreras, mapas, reglamentos, trámites, servicios, convocatorias, calendarios, listas, tablas y PDFs escaneados. La salida se normaliza a chunks con metadata de origen, sección, página y tipo de contenido.
 
-- **Horarios de grupo** (cuadrículas con días de la semana): se extraen con `pdfplumber` —que lee la tabla con columnas alineadas— y cada clase se convierte en una frase natural (ej. *"Lunes 17:10-18:00: Desarrollo WEB Integral (edificio D, aula DM; profesor IPM)"*). Así el LLM responde con precisión sin tener que interpretar una cuadrícula.
-- **Resto de documentos** (carreras, servicios escolares, planes de estudio, etc.): se convierten a Markdown inteligente con `pymupdf4llm`, se fragmentan por secciones y por tamaño (~512 tokens con 50 de solapamiento, medido con `tiktoken` para no rebasar la ventana del LLM).
+- **Documentos generales** (carreras, servicios escolares, planes de estudio, reglamentos, mapas, etc.): se convierten con Docling, se fragmentan por estructura con `HybridChunker` y conservan metadata como `fuente`, `pagina`, `seccion`, `tipo` y `parser`.
+- **Tablas**: se mantienen como chunks atómicos cuando es posible y se enriquecen con una frase de contexto para mejorar la recuperación semántica.
+- **Horarios de grupo** (cuadrículas con días de la semana): primero se intentan reconstruir con las tablas de Docling; si no se puede, entra el fallback con `pdfplumber`, que convierte cada clase en una frase natural (ej. *"Lunes 17:10-18:00: Desarrollo WEB Integral (edificio D, aula DM; profesor IPM)"*). Así el LLM responde con precisión sin tener que interpretar una cuadrícula.
 
-En ambos casos los vectores se guardan en ChromaDB con metadatos de origen (`fuente`, `grupo`; los horarios añaden `tipo: horario`). La re-subida de un mismo archivo es idempotente: reemplaza sus chunks anteriores. La respuesta del `/health` muestra cuántos chunks están disponibles.
+En todos los casos los vectores se guardan en ChromaDB con metadatos de origen (`fuente`, `grupo`, `tipo`; cuando Docling lo provee también `pagina`, `seccion` y `parser`). La re-subida de un mismo archivo es idempotente: reemplaza sus chunks anteriores. La respuesta del `/health` muestra cuántos chunks están disponibles.
 
-> ⚠️ Si cambias `EMBEDDING_PROVIDER`, debes borrar `chroma_db/` y re-indexar — los vectores de distintos modelos no son comparables.
+> ⚠️ Si cambias `EMBEDDING_PROVIDER` o actualizas el pipeline de parsing/chunking, debes borrar `chroma_db/` y re-indexar — los vectores y chunks anteriores no son comparables.
+
+> ℹ️ La primera ejecución de Docling/EasyOCR puede tardar más porque descarga modelos locales. Después queda cacheado en la máquina o imagen correspondiente.
 
 ---
 
@@ -191,7 +205,7 @@ space-ai-api-ms-ai/
 │   └── services/
 │       ├── llm.py             → Factory multi-proveedor (Groq / OpenAI / Gemini)
 │       ├── embeddings.py      → Factory de embeddings (local / OpenAI / Gemini)
-│       ├── ingest.py          → Pipeline de indexado (PDF → Markdown → chunks → ChromaDB)
+│       ├── ingest.py          → Pipeline de indexado (PDF → Docling → chunks → ChromaDB)
 │       └── rag.py             → Búsqueda semántica con filtro por grupo
 ├── scripts/
 │   └── ingest.py              → CLI de indexado por lote (mismo pipeline que el servicio)

@@ -33,3 +33,6 @@ line-ending = "lf"
 [tool.bandit]
 exclude_dirs = [".venv", "chroma_db"]
 skips = ["B101"]  # assert (igual que en ruff, ok en tests)
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

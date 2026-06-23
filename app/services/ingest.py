@@ -5,16 +5,19 @@ Reutiliza la lógica de scripts/ingest.py como módulo importable
 para que el endpoint HTTP pueda invocarla sin duplicar código.
 """
 
+import logging
 import re
+from typing import Any
 
 import pdfplumber
-import pymupdf4llm
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
 from app.services.embeddings import get_embeddings
+
+logger = logging.getLogger(__name__)
 
 # Días de la semana que identifican una tabla de horario. Sin acentos para
 # coincidir con el texto tal como lo extrae pdfplumber del PDF.
@@ -23,17 +26,22 @@ DIAS_SEMANA = ("lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "d
 # Celdas vacías de la cuadrícula de horario (guiones sueltos en distintas formas).
 _CELDA_VACIA = {"", "-", "-\n-", "--"}
 
-# Medidos en TOKENS (no caracteres) para respetar el límite de la ventana del LLM.
-# 512 tokens es lo bastante grande para contener una sección o tabla de horario
-# completa sin partirla, soportando preguntas y respuestas amplias.
+# Medidos en TOKENS para Docling HybridChunker. El fallback Markdown usa una
+# equivalencia aproximada en caracteres para no depender de descargas de tokenizer.
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 50
+FALLBACK_CHAR_CHUNK_SIZE = 2400
+FALLBACK_CHAR_CHUNK_OVERLAP = 250
 
-HEADERS_TO_SPLIT = [
-    ("#", "h1"),
-    ("##", "h2"),
-    ("###", "h3"),
-]
+_LABEL_TIPOS = {
+    "table": "tabla",
+    "list_item": "lista",
+    "ordered_list": "lista",
+    "unordered_list": "lista",
+    "picture": "imagen",
+    "chart": "imagen",
+    "document_index": "lista",
+}
 
 
 def _extraer_grupo(nombre_archivo: str) -> str:
@@ -41,10 +49,237 @@ def _extraer_grupo(nombre_archivo: str) -> str:
     return match.group(1) if match else ""
 
 
+def _docling_ocr_langs() -> list[str]:
+    langs = [lang.strip() for lang in settings.docling_ocr_langs.split(",")]
+    return [lang for lang in langs if lang] or ["es"]
+
+
+def _crear_docling_converter():
+    try:
+        from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import (
+            EasyOcrOptions,
+            PdfPipelineOptions,
+            TableStructureOptions,
+        )
+        from docling.document_converter import DocumentConverter, PdfFormatOption
+    except ImportError as exc:
+        raise RuntimeError(
+            "Docling no está instalado. Ejecuta `pip install -r requirements.txt` "
+            "para habilitar el nuevo parser de PDFs."
+        ) from exc
+
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.do_ocr = settings.docling_enable_ocr
+    pipeline_options.do_table_structure = settings.docling_enable_tables
+    pipeline_options.table_structure_options = TableStructureOptions(do_cell_matching=True)
+    pipeline_options.accelerator_options = AcceleratorOptions(
+        num_threads=settings.docling_num_threads,
+        device=AcceleratorDevice.AUTO,
+    )
+
+    pipeline_options.ocr_options = EasyOcrOptions(
+        lang=_docling_ocr_langs(),
+        use_gpu=True if settings.docling_ocr_use_gpu else None,
+    )
+
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+        }
+    )
+
+
+def _convertir_con_docling(ruta: str):
+    return _crear_docling_converter().convert(source=ruta)
+
+
+def _crear_docling_chunker():
+    try:
+        from docling.chunking import HybridChunker
+    except ImportError as exc:
+        raise RuntimeError(
+            "Docling HybridChunker no está disponible. Reinstala con "
+            "`pip install -r requirements.txt`."
+        ) from exc
+
+    return HybridChunker(merge_peers=True)
+
+
+def _valor_label(label: Any) -> str:
+    raw = getattr(label, "value", None) or getattr(label, "name", None) or str(label)
+    return str(raw).replace("DocItemLabel.", "").lower()
+
+
+def _page_no(prov: Any) -> int | None:
+    page = getattr(prov, "page_no", None)
+    if isinstance(page, int):
+        return page
+    return None
+
+
+def _metadata_desde_chunk(chunk: Any, nombre: str, grupo: str) -> dict[str, Any]:
+    meta = getattr(chunk, "meta", None)
+    doc_items = list(getattr(meta, "doc_items", []) or [])
+    labels = [_valor_label(getattr(item, "label", "")) for item in doc_items]
+    paginas = sorted(
+        {
+            page
+            for item in doc_items
+            for prov in getattr(item, "prov", []) or []
+            if (page := _page_no(prov)) is not None
+        }
+    )
+
+    tipo = "texto"
+    for label in labels:
+        if label in _LABEL_TIPOS:
+            tipo = _LABEL_TIPOS[label]
+            break
+    if "mapa" in nombre.lower() and tipo == "imagen":
+        tipo = "mapa"
+
+    headings = [str(h).strip() for h in getattr(meta, "headings", []) or [] if str(h).strip()]
+
+    metadata: dict[str, Any] = {
+        "fuente": nombre,
+        "grupo": grupo,
+        "tipo": tipo,
+        "parser": "docling",
+    }
+    if paginas:
+        metadata["pagina"] = paginas[0] if len(paginas) == 1 else ",".join(map(str, paginas))
+    if headings:
+        metadata["seccion"] = " > ".join(headings[-3:])
+    if labels:
+        metadata["labels"] = ",".join(sorted(set(labels)))
+    return metadata
+
+
+def _contexto_tabla(metadata: dict[str, Any], nombre: str) -> str:
+    seccion = metadata.get("seccion")
+    if seccion:
+        return f"Tabla del documento {nombre}, seccion {seccion}."
+    return f"Tabla del documento {nombre}."
+
+
+def _chunks_desde_docling(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
+    chunker = _crear_docling_chunker()
+    docs: list[Document] = []
+
+    for chunk in chunker.chunk(dl_doc=conv_res.document):
+        texto = chunker.contextualize(chunk=chunk).strip()
+        if not texto:
+            continue
+        metadata = _metadata_desde_chunk(chunk, nombre, grupo)
+        if metadata["tipo"] == "tabla":
+            texto = f"{_contexto_tabla(metadata, nombre)}\n\n{texto}"
+        docs.append(Document(page_content=texto, metadata=metadata))
+
+    return docs
+
+
+def _chunks_markdown_desde_docling(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
+    md_texto = conv_res.document.export_to_markdown()
+    if not md_texto.strip():
+        return []
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=max(settings.docling_chunk_size * 4, FALLBACK_CHAR_CHUNK_SIZE),
+        chunk_overlap=FALLBACK_CHAR_CHUNK_OVERLAP,
+        separators=["\n## ", "\n# ", "\n\n", "\n", ". ", " ", ""],
+    )
+    docs = splitter.create_documents(
+        [md_texto],
+        metadatas=[{"fuente": nombre, "grupo": grupo, "tipo": "texto", "parser": "docling"}],
+    )
+    for idx, doc in enumerate(docs):
+        doc.metadata["chunk"] = idx
+    return docs
+
+
+def _tabla_docling_a_matriz(table: Any, dl_doc: Any) -> list[list[str]]:
+    df = table.export_to_dataframe(doc=dl_doc)
+    headers = [str(col).strip() for col in df.columns]
+    filas = [
+        [str(value).strip() if value is not None else "" for value in row]
+        for row in df.fillna("").values.tolist()
+    ]
+    if _es_cabecera_horario(headers):
+        return [headers, *filas]
+    if filas and _es_cabecera_horario(filas[0]):
+        return filas
+    return [headers, *filas]
+
+
+def _tablas_desde_docling(conv_res: Any) -> list[list[list[str]]]:
+    tablas = []
+    for table in getattr(conv_res.document, "tables", []) or []:
+        try:
+            matriz = _tabla_docling_a_matriz(table, conv_res.document)
+        except Exception as exc:
+            logger.warning("No se pudo convertir una tabla de Docling: %s", exc)
+            continue
+        if matriz:
+            tablas.append(matriz)
+    return tablas
+
+
+def _procesar_horario_docling(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
+    tablas = _tablas_desde_docling(conv_res)
+    if not tablas:
+        return []
+
+    frases: list[str] = []
+    docentes = _extraer_docentes(tablas)
+    for tabla in tablas:
+        frases.extend(_horario_a_frases(tabla, grupo, docentes))
+
+    return [
+        Document(
+            page_content=frase,
+            metadata={"fuente": nombre, "grupo": grupo, "tipo": "horario", "parser": "docling"},
+        )
+        for frase in frases
+    ]
+
+
+def _promedio_largo_texto(docs: list[Document]) -> float:
+    if not docs:
+        return 0
+    return sum(len(doc.page_content) for doc in docs) / len(docs)
+
+
+def _horario_pdfplumber_es_mas_rico(
+    docs_pdfplumber: list[Document],
+    docs_docling: list[Document],
+) -> bool:
+    if not docs_pdfplumber:
+        return False
+    if not docs_docling:
+        return True
+
+    tiene_docentes_pdf = any("profesor" in doc.page_content.lower() for doc in docs_pdfplumber)
+    tiene_docentes_docling = any("profesor" in doc.page_content.lower() for doc in docs_docling)
+    if tiene_docentes_pdf and not tiene_docentes_docling:
+        return True
+
+    if len(docs_pdfplumber) >= max(1, int(len(docs_docling) * 0.75)):
+        return _promedio_largo_texto(docs_pdfplumber) > _promedio_largo_texto(docs_docling) * 1.15
+
+    return False
+
+
 def _es_cabecera_horario(fila: list) -> bool:
     """True si la fila contiene al menos dos días de la semana (cabecera de horario)."""
     texto = " ".join(str(c).lower() for c in fila if c)
     return sum(1 for dia in DIAS_SEMANA if dia in texto) >= 2
+
+
+def _es_celda_vacia(valor: str) -> bool:
+    texto = re.sub(r"\s+", "", str(valor or ""))
+    return not texto or texto in _CELDA_VACIA or set(texto) == {"-"}
 
 
 def _normalizar_materia(texto: str) -> str:
@@ -98,16 +333,21 @@ def _formatear_celda(valor: str, docentes: dict[str, str] | None = None) -> str:
     El campo del profesor SÍ se conserva aunque sea "-" para no desplazar las
     posiciones: la última línea siempre es el profesor, la penúltima el aula.
     """
+    if _es_celda_vacia(valor):
+        return ""
+
     lineas = [ln.strip() for ln in str(valor).split("\n") if ln.strip()]
     if not lineas:
         return ""
     if len(lineas) == 1:
-        return lineas[0] if lineas[0] != "-" else ""
+        return lineas[0] if not _es_celda_vacia(lineas[0]) else ""
 
     # Orden fijo: [...materia, edificio_aula, profesor]
     siglas_profesor = lineas[-1]
     edificio_aula = lineas[-2]
     materia = " ".join(lineas[:-2]) if len(lineas) > 2 else lineas[0]
+    if _es_celda_vacia(materia):
+        return ""
 
     detalle = []
     if edificio_aula and edificio_aula != "-":
@@ -162,7 +402,7 @@ def _horario_a_frases(tabla: list, grupo: str, docentes: dict[str, str] | None =
             if idx >= len(fila):
                 continue
             valor = str(fila[idx]).strip() if fila[idx] else ""
-            if valor in _CELDA_VACIA:
+            if _es_celda_vacia(valor):
                 continue
             clase = _formatear_celda(valor, docentes)
             if clase:
@@ -190,7 +430,10 @@ def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
         frases.extend(_horario_a_frases(tabla, grupo, docentes))
 
     return [
-        Document(page_content=frase, metadata={"fuente": nombre, "grupo": grupo, "tipo": "horario"})
+        Document(
+            page_content=frase,
+            metadata={"fuente": nombre, "grupo": grupo, "tipo": "horario", "parser": "pdfplumber"},
+        )
         for frase in frases
     ]
 
@@ -198,32 +441,25 @@ def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
 def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
     grupo = _extraer_grupo(nombre)
 
-    # Los horarios son cuadrículas que pymupdf4llm desalinea: se procesan aparte
-    # con pdfplumber, convirtiendo cada clase en una frase legible.
+    conv_res = _convertir_con_docling(ruta)
+
+    # Docling es la ruta principal. Los horarios se extraen primero desde sus
+    # tablas; si no logra reconstruir la cuadrícula, se usa el fallback probado.
+    docs_horario = _procesar_horario_docling(conv_res, nombre, grupo)
+    if docs_horario:
+        docs_horario_pdfplumber = _procesar_horario(ruta, nombre, grupo)
+        if _horario_pdfplumber_es_mas_rico(docs_horario_pdfplumber, docs_horario):
+            return docs_horario_pdfplumber
+        return docs_horario
+
     docs_horario = _procesar_horario(ruta, nombre, grupo)
     if docs_horario:
         return docs_horario
 
-    md_texto = pymupdf4llm.to_markdown(ruta)
-    if not md_texto.strip():
-        return []
-
-    md_splitter = MarkdownHeaderTextSplitter(
-        headers_to_split_on=HEADERS_TO_SPLIT,
-        strip_headers=False,
-    )
-    docs_por_seccion = md_splitter.split_text(md_texto)
-
-    # Conteo por tokens (tiktoken) para no rebasar la ventana del LLM.
-    char_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
-    )
-    chunks = char_splitter.split_documents(docs_por_seccion)
-
-    for chunk in chunks:
-        chunk.metadata.update({"fuente": nombre, "grupo": grupo})
+    try:
+        chunks = _chunks_desde_docling(conv_res, nombre, grupo)
+    except Exception:
+        chunks = _chunks_markdown_desde_docling(conv_res, nombre, grupo)
 
     return chunks
 
@@ -248,11 +484,10 @@ def indexar_pdf(ruta_archivo: str, nombre_archivo: str) -> int:
         persist_directory=settings.chroma_path,
     )
 
-    # Colección nueva: si no hay nada que borrar, ignoramos el error.
     try:
         vectorstore.delete(where={"fuente": nombre_archivo})
-    except Exception:  # noqa: S110  # nosec
-        pass
+    except Exception as exc:
+        logger.debug("No se pudieron borrar chunks previos de %s: %s", nombre_archivo, exc)
 
     vectorstore.add_documents(chunks)
     return len(chunks)

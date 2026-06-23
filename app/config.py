@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     collection_name: str = "documentos"
     n_resultados: int = 8
 
+    # Docling PDF parsing
+    docling_enable_ocr: bool = True
+    docling_enable_tables: bool = True
+    docling_ocr_langs: str = "es,en"
+    docling_ocr_use_gpu: bool = False
+    docling_num_threads: int = 4
+    docling_chunk_size: int = 512
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

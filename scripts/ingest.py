@@ -4,9 +4,9 @@ Indexador de documentos para RAG con LangChain + ChromaDB.
 Uso:
     python scripts/ingest.py docs/
 
-Soporta cualquier PDF sin importar su estructura. Usa pymupdf4llm para
-convertir cada PDF a Markdown inteligente (preserva tablas, columnas y
-secciones) y luego LangChain para fragmentar por estructura semántica.
+Soporta documentos universitarios variados. Usa Docling como parser principal
+layout-aware con OCR, tablas, columnas y secciones; luego genera chunks
+estructurales para ChromaDB.
 """
 
 import os
@@ -71,7 +71,7 @@ def main():
         # Eliminar chunks anteriores del mismo archivo antes de reinsertar
         try:
             vectorstore.delete(where={"fuente": nombre})
-        except Exception:  # nosec B110 — colección nueva, no hay nada que borrar
+        except Exception:  # nosec B110
             pass
 
         vectorstore.add_documents(chunks)
