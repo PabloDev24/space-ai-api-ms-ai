@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     embedding_provider: str = "local"
     embedding_model: str = ""  # usa el default del proveedor si está vacío
 
+    # Logging
+    log_level: str = "INFO"
+
     # RAG
     chroma_path: str = "chroma_db"
     collection_name: str = "documentos"
