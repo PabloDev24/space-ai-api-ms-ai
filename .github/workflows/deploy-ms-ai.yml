@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -27,9 +31,25 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Deploy to App Service for Containers
-        uses: azure/webapps-deploy@v3
+      # OIDC federated login — no client secret stored, Azure trusts this
+      # workflow directly (App registration "spaceia-ms-ai-deploy", scoped
+      # to Website Contributor on this one App Service only).
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
         with:
-          app-name: app-spaceia-ms-ai
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_MS_AI }}
-          images: ${{ secrets.ACR_LOGIN_SERVER }}/spaceia-ms-ai:latest
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to App Service for Containers
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az webapp config container set \
+              --resource-group rg-spaceia-demo \
+              --name app-spaceia-ms-ai \
+              --container-image-name ${{ secrets.ACR_LOGIN_SERVER }}/spaceia-ms-ai:latest \
+              --container-registry-url https://${{ secrets.ACR_LOGIN_SERVER }} \
+              --container-registry-user ${{ secrets.ACR_USERNAME }} \
+              --container-registry-password ${{ secrets.ACR_PASSWORD }}
+            az webapp restart --resource-group rg-spaceia-demo --name app-spaceia-ms-ai
