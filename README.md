@@ -56,7 +56,7 @@ cp .env.example .env
 
 | Variable | Requerida | Default | Descripción |
 |---|---|---|---|
-| `PROVEEDOR` | ✅ | `gemini` | Proveedor LLM: `groq` \| `openai` \| `gemini` |
+| `PROVEEDOR` | ✅ | `groq` | Proveedor LLM: `groq` \| `openai` \| `gemini` |
 | `GROQ_API_KEY` | Si `PROVEEDOR=groq` | — | API Key de [console.groq.com](https://console.groq.com) |
 | `OPENAI_API_KEY` | Si `PROVEEDOR=openai` | — | API Key de OpenAI |
 | `GEMINI_API_KEY` | Si `PROVEEDOR=gemini` | — | API Key de Google AI Studio |
@@ -176,10 +176,12 @@ En todos los casos los vectores se guardan en ChromaDB con metadatos de origen (
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/health` | Estado del servicio y chunks disponibles |
-| `POST` | `/chat` | Enviar una pregunta al asistente |
+| `POST` | `/chat` | Enviar una pregunta al asistente (contrato público, no el interno que consume el backend) |
 | `POST` | `/ingest` | Subir un PDF e indexarlo en la base vectorial (`multipart/form-data`, campo `archivo`) |
 | `GET` | `/debug/rag?pregunta=...` | Ver qué chunks recupera el RAG para una pregunta |
 | `GET` | `/docs` | Documentación interactiva Swagger |
+
+> ⚠️ **`POST /ask`** — el contrato interno que consume `space-ai-api-core` (`docs/03_API_MINIMUM_CONTRACTS.txt` §11: `question`/`userContext`/`source` → `answer`/`confidence`/`sources`) **no está disponible en `main`** todavía. Existe implementado en la branch `feat/knowledge-rag` (`app/routers/ask.py`) sin mergear. Hasta que se mergee, el backend .NET no tiene un endpoint real que llamar para ese contrato.
 
 **Ejemplo de consulta:**
 
@@ -195,6 +197,7 @@ curl -X POST http://localhost:8000/chat \
 
 ```
 space-ai-api-ms-ai/
+├── main.py                    → Entrypoint uvicorn (invocado por Dockerfile y README)
 ├── app/
 │   ├── main.py                → Inicialización de FastAPI y registro de routers
 │   ├── config.py              → Configuración vía Pydantic Settings (.env)
@@ -209,12 +212,36 @@ space-ai-api-ms-ai/
 │       └── rag.py             → Búsqueda semántica con filtro por grupo
 ├── scripts/
 │   └── ingest.py              → CLI de indexado por lote (mismo pipeline que el servicio)
+├── tests/                     → pytest (ver sección de calidad más abajo)
 ├── docs/                      → PDFs institucionales (gitignored, agregar manualmente)
 ├── chroma_db/                 → Base vectorial persistente (gitignored)
+├── .github/workflows/         → CI: pytest + ruff + bandit en cada push/PR
 ├── Dockerfile
 ├── docker-compose.yml
+├── pyproject.toml             → Config de ruff/bandit/pytest
 ├── requirements.txt
 └── .env.example
+```
+
+---
+
+## ✅ Calidad y CI
+
+En cada push/PR (`.github/workflows/lint-security.yml`) corren automáticamente:
+
+| Herramienta | Qué revisa |
+|---|---|
+| `pytest` | Suite de pruebas en `tests/` |
+| `ruff check` | Linting |
+| `ruff format --check` | Formato |
+| `bandit` | Análisis estático de seguridad |
+
+Localmente:
+```bash
+pytest
+ruff check .
+ruff format --check .
+bandit -r app/
 ```
 
 ---
