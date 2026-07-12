@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.llm import generate
 from app.services.rag import buscar_contexto_con_metadata
@@ -26,21 +26,27 @@ def _parse_page(pagina: object) -> int | None:
 
 
 class UserContext(BaseModel):
-    userId: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    user_id: str = Field(alias="userId")
     name: str
     career: str
 
 
 class AskRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     question: str
-    userContext: UserContext
+    user_context: UserContext = Field(alias="userContext")
     source: str
 
 
 class Source(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     title: str
     page: int | None = None
-    chunkId: str
+    chunk_id: str = Field(alias="chunkId")
 
 
 class AskResponse(BaseModel):
@@ -69,7 +75,7 @@ def ask(request: AskRequest):
     prompt = (
         f"{contexto_fecha}\n\n"
         f"Información relacionada:\n{contexto}\n\n"
-        f"Pregunta de {request.userContext.name} ({request.userContext.career}): {pregunta}"
+        f"Pregunta de {request.user_context.name} ({request.user_context.career}): {pregunta}"
     )
 
     try:
@@ -82,7 +88,7 @@ def ask(request: AskRequest):
         Source(
             title=metadata.get("fuente", "documento"),
             page=_parse_page(metadata.get("pagina")),
-            chunkId=f"{metadata.get('fuente', 'doc')}-{metadata.get('pagina', 0)}-{i}",
+            chunk_id=f"{metadata.get('fuente', 'doc')}-{metadata.get('pagina', 0)}-{i}",
         )
         for i, (_, metadata, _) in enumerate(resultados)
     ]
