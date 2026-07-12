@@ -85,8 +85,7 @@ def buscar_contexto_con_metadata(pregunta: str) -> list[tuple[str, dict, float]]
         )
 
     return [
-        (doc.page_content, doc.metadata, max(0.0, min(1.0, score)))
-        for doc, score in resultados
+        (doc.page_content, doc.metadata, max(0.0, min(1.0, score))) for doc, score in resultados
     ]
 
 

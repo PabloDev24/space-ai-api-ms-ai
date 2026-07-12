@@ -8,8 +8,7 @@ from app.services.rag import buscar_contexto_con_metadata
 
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 SIN_CONTEXTO = (
-    "No encontré información suficiente en los documentos del campus "
-    "para responder con certeza."
+    "No encontré información suficiente en los documentos del campus para responder con certeza."
 )
 
 router = APIRouter(tags=["ask"])
@@ -21,7 +20,7 @@ def _parse_page(pagina: object) -> int | None:
         return None
     try:
         return int(str(pagina).split(",")[0].strip())
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 
