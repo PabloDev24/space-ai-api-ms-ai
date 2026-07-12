@@ -61,6 +61,35 @@ def buscar_contexto(pregunta: str) -> list[str]:
     return [doc.page_content for doc in docs]
 
 
+def buscar_contexto_con_metadata(pregunta: str) -> list[tuple[str, dict, float]]:
+    """Como buscar_contexto pero conserva metadata (fuente/pagina/seccion) y score por chunk."""
+    if _vectorstore is None:
+        return []
+
+    grupo = _detectar_grupo(pregunta)
+    filtro = {"grupo": grupo} if grupo else None
+
+    try:
+        resultados = _vectorstore.similarity_search_with_relevance_scores(
+            pregunta,
+            k=settings.n_resultados,
+            filter=filtro,
+        )
+        if not resultados and filtro:
+            resultados = _vectorstore.similarity_search_with_relevance_scores(
+                pregunta, k=settings.n_resultados
+            )
+    except Exception:
+        resultados = _vectorstore.similarity_search_with_relevance_scores(
+            pregunta, k=settings.n_resultados
+        )
+
+    return [
+        (doc.page_content, doc.metadata, max(0.0, min(1.0, score)))
+        for doc, score in resultados
+    ]
+
+
 def collection_info() -> dict:
     if _vectorstore is None:
         return {"cargada": False, "chunks": 0}
