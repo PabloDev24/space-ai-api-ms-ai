@@ -3,7 +3,7 @@ from langchain_core.embeddings import Embeddings
 from app.config import settings
 
 _MODELOS_DEFAULT = {
-    "local": "BAAI/bge-small-en-v1.5",  # ONNX, sin PyTorch, multilingüe
+    "local": "BAAI/bge-small-en-v1.5",  # ONNX, retrieval-tuned. OJO: monolingüe (inglés)
     "openai": "text-embedding-3-small",
     "gemini": "models/text-embedding-004",
 }
