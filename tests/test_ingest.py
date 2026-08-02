@@ -73,10 +73,14 @@ def test_procesar_pdf_usa_horario_extraido_por_docling(monkeypatch):
 
     docs = ingest.procesar_pdf("horario.pdf", "IDGS901.pdf")
 
-    assert len(docs) == 1
-    assert docs[0].page_content.startswith("Grupo 901. Lunes 08:00-08:50")
-    assert docs[0].metadata["tipo"] == "horario"
-    assert docs[0].metadata["parser"] == "docling"
+    # Aditivo: una frase por franja + una frase agregada por día.
+    assert len(docs) == 2
+    contenidos = [d.page_content for d in docs]
+    assert any(c.startswith("Grupo 901. Lunes 08:00-08:50") for c in contenidos)  # por franja
+    assert any("Clases del Lunes:" in c for c in contenidos)  # agregada por día
+    for d in docs:
+        assert d.metadata["tipo"] == "horario"
+        assert d.metadata["parser"] == "docling"
 
 
 def test_procesar_pdf_prefiere_horario_pdfplumber_mas_rico(monkeypatch):

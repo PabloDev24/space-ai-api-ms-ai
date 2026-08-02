@@ -283,6 +283,7 @@ def _procesar_horario_docling(conv_res: Any, nombre: str, grupo: str) -> list[Do
     docentes = _extraer_docentes(tablas)
     for tabla in tablas:
         frases.extend(_horario_a_frases(tabla, grupo, docentes))
+        frases.extend(_horario_por_dia_a_frases(tabla, grupo, docentes))
 
     return [
         Document(
@@ -458,6 +459,54 @@ def _horario_a_frases(tabla: list, grupo: str, docentes: dict[str, str] | None =
     return frases
 
 
+def _horario_por_dia_a_frases(
+    tabla: list, grupo: str, docentes: dict[str, str] | None = None
+) -> list[str]:
+    """
+    Una frase por (grupo, día) que agrega TODAS las clases de ese día.
+
+    Complementa a `_horario_a_frases` (una por franja): las consultas del tipo
+    "¿qué clases tengo el sábado?" necesitan cobertura completa del día, que los
+    chunks por franja no dan porque varios slots casi idénticos de una misma materia
+    copan el top-k y dejan fuera a las demás.
+    """
+    if not tabla or not _es_cabecera_horario(tabla[0]):
+        return []
+
+    cabecera = [str(c).strip() if c else "" for c in tabla[0]]
+    cols_dia = {i: cabecera[i] for i, c in enumerate(cabecera) if c.lower() in DIAS_SEMANA}
+    idx_horas = next(
+        (i for i, c in enumerate(cabecera) if c.lower() in ("horas", "hora")),
+        None,
+    )
+
+    por_dia: dict[str, list[str]] = {dia: [] for dia in cols_dia.values()}
+    for fila in tabla[1:]:
+        if not fila or _es_cabecera_horario(fila):
+            continue
+        horas = ""
+        if idx_horas is not None and idx_horas < len(fila):
+            horas = str(fila[idx_horas]).strip()
+        if not re.search(r"\d{1,2}:\d{2}", horas):
+            continue
+        for idx, dia in cols_dia.items():
+            if idx >= len(fila):
+                continue
+            valor = str(fila[idx]).strip() if fila[idx] else ""
+            if _es_celda_vacia(valor):
+                continue
+            clase = _formatear_celda(valor, docentes)
+            if clase:
+                por_dia[dia].append(f"{horas} {clase}")
+
+    pref = f"Grupo {grupo}. " if grupo else ""
+    return [
+        f"{pref}Clases del {dia}: {'; '.join(clases)}."
+        for dia, clases in por_dia.items()
+        if clases
+    ]
+
+
 def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
     """
     Extrae tablas de horario con pdfplumber y las convierte en frases naturales.
@@ -476,6 +525,7 @@ def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
     docentes = _extraer_docentes(tablas)
     for tabla in tablas:
         frases.extend(_horario_a_frases(tabla, grupo, docentes))
+        frases.extend(_horario_por_dia_a_frases(tabla, grupo, docentes))
 
     return [
         Document(

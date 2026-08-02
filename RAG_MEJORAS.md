@@ -17,6 +17,7 @@ Rama de trabajo: `feat/rag-eval-and-freshness`.
 | 5 | Híbrida BM25 | ❌ descartada | Sin ganancia medible; reranker ya cubre exactas |
 | 6 | Tablas de datos fila→frase | ✅ | Filas recuperables; harness 15/15 |
 | 8 | Endurecer el harness | ✅ | 29 preguntas; desatura la métrica (24/25) |
+| 9 | Agregación de horario por día | ✅ | Cobertura multi-materia; harness 25/25 |
 | 7 | Evaluar `multilingual-e5-large` | ⏳ pendiente | Ya medible tras #8 |
 | 5 | Híbrida BM25 | ⏳ reconsiderar | Ya medible tras #8 |
 
@@ -75,6 +76,15 @@ ningún cambio de embedding/retrieval era medible. Se amplió a **29 preguntas**
 con un fallo de diagnóstico útil: `hard-901-sabado-materias` (pregunta multi-respuesta;
 el top-5 no cubre la segunda materia → debilidad de cobertura/diversidad). Negativas
 calibradas 0.07–0.28. Ahora e5 y BM25 son evaluables.
+
+### 9. Agregación de horario por día
+El harness endurecido expuso que "¿qué clases tengo el sábado?" no cubría todas las
+materias: los chunks por franja (1 por slot) generan duplicados casi idénticos de una
+misma materia que copan el top-k y dejan fuera las demás; incluso se colaban slots de
+otro día. Fix **aditivo**: además de las frases por franja, se emite una frase por
+(grupo, día) que agrega todas las clases de ese día ("Grupo 901. Clases del sábado: …").
+Las preguntas por franja se conservan. **Medido:** `hard-901-sabado-materias` pasa y el
+harness sube a **25/25** sin regresión.
 
 ### 7. Evaluar `multilingual-e5-large` (pendiente, ya medible)
 Candidato correcto para el embedding: multilingüe Y retrieval-tuned (2.24 GB, exige
