@@ -501,9 +501,7 @@ def _horario_por_dia_a_frases(
 
     pref = f"Grupo {grupo}. " if grupo else ""
     return [
-        f"{pref}Clases del {dia}: {'; '.join(clases)}."
-        for dia, clases in por_dia.items()
-        if clases
+        f"{pref}Clases del {dia}: {'; '.join(clases)}." for dia, clases in por_dia.items() if clases
     ]
 
 

@@ -32,9 +32,7 @@ def _load_vectorstore() -> Chroma | None:
             embedding_function=get_embeddings(),
             persist_directory=settings.chroma_path,
         )
-        logger.info(
-            "Base de conocimiento cargada: %d chunks disponibles.", vs._collection.count()
-        )
+        logger.info("Base de conocimiento cargada: %d chunks disponibles.", vs._collection.count())
         return vs
     except Exception as e:
         logger.warning("No se pudo cargar la colección: %s", e)
