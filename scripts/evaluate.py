@@ -71,8 +71,14 @@ def _evaluar_caso(caso: dict, k: int) -> dict:
     kw_encontradas = [kw for kw in keywords if _norm(kw) in contexto]
     keyword_recall = len(kw_encontradas) / len(keywords) if keywords else 1.0
 
+    # fuente_esperada puede ser un string o una lista (cross-documento: cualquiera cuenta).
     fuente_esperada = caso.get("fuente_esperada")
-    source_hit = fuente_esperada in fuentes if fuente_esperada else None
+    if not fuente_esperada:
+        source_hit = None
+    elif isinstance(fuente_esperada, list):
+        source_hit = any(f in fuentes for f in fuente_esperada)
+    else:
+        source_hit = fuente_esperada in fuentes
     keyword_hit = len(kw_encontradas) == len(keywords)
 
     if espera_sin_contexto:

@@ -38,12 +38,21 @@ Sale con código 1 si algún caso puntuado falla (sirve para CI).
 2. Aplica el cambio (ej. embedding multilingüe) y **re-indexa** (`scripts/ingest.py docs/`).
 3. `evaluate.py --json despues.json` y compara los resúmenes.
 
-## Línea base (2026-08, embedding local `bge-small-en`, 224 chunks)
+## Líneas base
 
+### Denso puro, sin reranker (2026-08, `bge-small-en`, 224 chunks) — histórica
 - `pass` 14/15 (93%), `source_hit@3` 15/15 (100%), `keyword_recall` 93%.
 - Falla: `est-politicas` (fuente correcta, frase exacta fuera de top-k).
-- Alerta de calibración: preguntas fuera de alcance puntúan ~0.53–0.56 de relevancia
-  (el embedding inglés no separa bien relevante de ruido; mejora esperada con multilingüe).
+- Calibración pobre: fuera de alcance puntuaba ~0.53–0.56.
+
+### Con reranker + tablas fila→frase, harness endurecido (2026-08, 239 chunks) — actual
+Set ampliado a 29 preguntas (parafraseadas, multi-restricción, cross-documento,
+distractoras, negativas plausibles). Comando: `evaluate.py --k 5`.
+- `pass` **24/25 (96%)**, `source_hit@5` 25/25 (100%), `keyword_recall` 98%.
+- Fallo de diagnóstico: `hard-901-sabado-materias` — en una pregunta multi-respuesta el
+  top-5 se llena con slots de una sola materia y no cubre la segunda (debilidad de
+  **cobertura/diversidad** en recuperación). Es la señal medible para juzgar e5/BM25.
+- Calibración sana: negativas puntúan 0.07–0.28 (bien por debajo del rango relevante).
 
 ## Al añadir documentos nuevos
 

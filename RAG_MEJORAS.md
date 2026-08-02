@@ -16,7 +16,9 @@ Rama de trabajo: `feat/rag-eval-and-freshness`.
 | 4 | Reranker cross-encoder | ✅ | pass 14/15→15/15; confianza calibrada |
 | 5 | Híbrida BM25 | ❌ descartada | Sin ganancia medible; reranker ya cubre exactas |
 | 6 | Tablas de datos fila→frase | ✅ | Filas recuperables; harness 15/15 |
-| 7 | Evaluar `multilingual-e5-large` | ⏳ pendiente | Único abierto |
+| 8 | Endurecer el harness | ✅ | 29 preguntas; desatura la métrica (24/25) |
+| 7 | Evaluar `multilingual-e5-large` | ⏳ pendiente | Ya medible tras #8 |
+| 5 | Híbrida BM25 | ⏳ reconsiderar | Ya medible tras #8 |
 
 ## Detalle por pieza
 
@@ -65,10 +67,19 @@ cazó y se pasó a aditivo. **Medido:** harness 15/15, keyword_recall 93%→100%
 integración con fixture real recupera la fila objetivo en top-1. Fixture generado local;
 sin dep nueva al proyecto.
 
-### 7. Evaluar `multilingual-e5-large` (pendiente)
+### 8. Endurecer el harness
+El golden set directo llegó a 15/15 con el reranker → saturado, no discriminaba, así que
+ningún cambio de embedding/retrieval era medible. Se amplió a **29 preguntas**
+(parafraseadas, multi-restricción, cross-documento, distractoras, negativas plausibles) y
+`evaluate.py` acepta `fuente_esperada` como lista (cross-doc). **Resultado:** 24/25 (96%),
+con un fallo de diagnóstico útil: `hard-901-sabado-materias` (pregunta multi-respuesta;
+el top-5 no cubre la segunda materia → debilidad de cobertura/diversidad). Negativas
+calibradas 0.07–0.28. Ahora e5 y BM25 son evaluables.
+
+### 7. Evaluar `multilingual-e5-large` (pendiente, ya medible)
 Candidato correcto para el embedding: multilingüe Y retrieval-tuned (2.24 GB, exige
-prefijos `query:`/`passage:` → wrapper de código). Adoptar solo si supera el harness
-actual (15/15) sin latencia inaceptable.
+prefijos `query:`/`passage:` → wrapper de código). Adoptar solo si mejora los casos
+difíciles del harness endurecido sin regresar los fáciles ni añadir latencia inaceptable.
 
 ## Cómo medir un cambio
 

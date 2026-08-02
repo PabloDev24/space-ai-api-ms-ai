@@ -1,0 +1,555 @@
+[
+  {
+    "id": "hor-901-sab-0800",
+    "categoria": "horario",
+    "pregunta": "¿Qué clase tiene el grupo 901 el sábado a las 8 de la mañana?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.822,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hor-901-webint-profe",
+    "categoria": "horario",
+    "pregunta": "¿Quién imparte Desarrollo WEB Integral en el grupo 901?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.849,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hor-901-webint-aula",
+    "categoria": "horario",
+    "pregunta": "¿En qué aula se imparte Desarrollo WEB Integral del grupo 901?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.879,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hor-901-dispinteligentes",
+    "categoria": "horario",
+    "pregunta": "¿Qué días tiene el grupo 901 la materia Desarrollo para dispositivos inteligentes?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.87,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hor-904-sab-0800",
+    "categoria": "horario",
+    "pregunta": "¿Qué materia tiene el grupo 904 el sábado a primera hora?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.706,
+    "fuentes_top": [
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hor-904-existe",
+    "categoria": "horario",
+    "pregunta": "¿Qué clases lleva el grupo 904?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.611,
+    "fuentes_top": [
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "est-que-son",
+    "categoria": "estadias",
+    "pregunta": "¿Qué son las estadías en la universidad?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.602,
+    "fuentes_top": [
+      "Manual de Estadías.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "est-cancelacion-destino",
+    "categoria": "estadias",
+    "pregunta": "¿A quién se dirige la carta de cancelación de estadía?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.693,
+    "fuentes_top": [
+      "Carta de Cancelación y cambio de estadía VF 20250224.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "Carta de Cancelación y cambio de estadía VF 20250224.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "est-politicas",
+    "categoria": "estadias",
+    "pregunta": "¿Cuáles son las políticas de estadías?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.643,
+    "fuentes_top": [
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "est-menu-proyectos",
+    "categoria": "estadias",
+    "pregunta": "¿Qué proyectos de estadía hay para Desarrollo de Software Multiplataforma?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.755,
+    "fuentes_top": [
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf",
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf",
+      "IngenieriasUTL.pdf",
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf",
+      "IngenieriasUTL.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "car-ingenierias",
+    "categoria": "carreras",
+    "pregunta": "¿Qué ingenierías ofrece la UTL?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.166,
+    "fuentes_top": [
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "IngenieriasUTL.pdf",
+      "LicenciaturasUtl.pdf",
+      "IngenieriasUTL.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "car-ti-dsm",
+    "categoria": "carreras",
+    "pregunta": "¿Hay una ingeniería en tecnologías de la información con desarrollo de software?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.636,
+    "fuentes_top": [
+      "IngenieriasUTL.pdf",
+      "IngenieriasUTL.pdf",
+      "IngenieriasUTL.pdf",
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf",
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "car-lic-admin",
+    "categoria": "carreras",
+    "pregunta": "¿Qué hace un Licenciado en Administración?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.799,
+    "fuentes_top": [
+      "LicenciaturasUtl.pdf",
+      "LicenciaturasUtl.pdf",
+      "IngenieriasUTL.pdf",
+      "LicenciaturasUtl.pdf",
+      "LicenciaturasUtl.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "map-entrada",
+    "categoria": "mapa",
+    "pregunta": "¿Dónde está la entrada principal del campus?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.789,
+    "fuentes_top": [
+      "Mapa UTL.pdf",
+      "Mapa UTL.pdf",
+      "Mapa UTL.pdf",
+      "Mapa UTL.pdf",
+      "Mapa UTL.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "serv-prestamo-equipo",
+    "categoria": "servicios",
+    "pregunta": "¿Dónde puedo pedir préstamo de equipo de cómputo?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.443,
+    "fuentes_top": [
+      "Servicios-Politicas-DSI-2022.pdf",
+      "Servicios-Politicas-DSI-2022.pdf",
+      "Servicios-Politicas-DSI-2022.pdf",
+      "Servicios-Politicas-DSI-2022.pdf",
+      "IngenieriasUTL.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "fuera-capital-francia",
+    "categoria": "fuera_alcance",
+    "pregunta": "¿Cuál es la capital de Francia?",
+    "source_hit": null,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.073,
+    "fuentes_top": [
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "Mapa UTL.pdf",
+      "LicenciaturasUtl.pdf",
+      "IngenieriasUTL.pdf",
+      "IngenieriasUTL.pdf"
+    ],
+    "espera_sin_contexto": true,
+    "passed": null
+  },
+  {
+    "id": "fuera-clima",
+    "categoria": "fuera_alcance",
+    "pregunta": "¿Va a llover mañana?",
+    "source_hit": null,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.117,
+    "fuentes_top": [
+      "IDGS904.pdf",
+      "IDGS901.pdf",
+      "IDGS904.pdf",
+      "IDGS901.pdf",
+      "Manual de Estadías.pdf"
+    ],
+    "espera_sin_contexto": true,
+    "passed": null
+  },
+  {
+    "id": "hard-901-web-paraphrase",
+    "categoria": "horario",
+    "pregunta": "Si estoy en el grupo 901, ¿con qué profesor llevo la clase de creación de páginas web?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.711,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-901-miercoles-multi",
+    "categoria": "horario",
+    "pregunta": "¿Qué materia tiene el grupo 901 los miércoles por la tarde y en qué aula se imparte?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.792,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-904-extraccion-distractor",
+    "categoria": "horario",
+    "pregunta": "¿Quién imparte Extracción de conocimiento en bases de datos en el grupo 904?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.788,
+    "fuentes_top": [
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf",
+      "IDGS904.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-901-glp-sigla",
+    "categoria": "horario",
+    "pregunta": "¿Cómo se llama el profesor con las siglas GLP del grupo 901?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.823,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-901-entrada-lunes",
+    "categoria": "horario",
+    "pregunta": "¿A qué hora entra a clases el grupo 901 los lunes?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.794,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-901-webint-edificio",
+    "categoria": "horario",
+    "pregunta": "¿En qué edificio se dan las clases de Desarrollo WEB Integral del grupo 901?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.885,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-901-sabado-materias",
+    "categoria": "horario",
+    "pregunta": "¿Qué materias ve el grupo 901 los sábados?",
+    "source_hit": true,
+    "keyword_hit": false,
+    "keyword_recall": 0.5,
+    "kw_faltantes": [
+      "Dirección de Equipos de Alto Rendimiento"
+    ],
+    "max_score": 0.798,
+    "fuentes_top": [
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf",
+      "IDGS901.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": false
+  },
+  {
+    "id": "hard-cross-dsm-proyectos",
+    "categoria": "cross",
+    "pregunta": "¿Qué ingeniería hay de desarrollo de software y qué proyectos de estadía ofrece esa área?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.563,
+    "fuentes_top": [
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf",
+      "Menú de Proyectos de Estadía_Tecnologías de la Información área Desarrollo de Software Multiplataforma.pdf",
+      "Manual de Estadías.pdf",
+      "IngenieriasUTL.pdf",
+      "IngenieriasUTL.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-est-cancelar-paraphrase",
+    "categoria": "estadias",
+    "pregunta": "Ya no quiero continuar con mi estadía, ¿qué trámite tengo que hacer?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.471,
+    "fuentes_top": [
+      "Carta de Cancelación y cambio de estadía VF 20250224.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "Carta de Cancelación y cambio de estadía VF 20250224.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "Manual de Estadías.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-lic-admin-paraphrase",
+    "categoria": "carreras",
+    "pregunta": "¿Qué debería estudiar alguien que quiere dirigir y organizar empresas?",
+    "source_hit": true,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.277,
+    "fuentes_top": [
+      "LicenciaturasUtl.pdf",
+      "Manual de Estadías.pdf",
+      "Manual de Estadías.pdf",
+      "LicenciaturasUtl.pdf",
+      "Manual de Estadías.pdf"
+    ],
+    "espera_sin_contexto": false,
+    "passed": true
+  },
+  {
+    "id": "hard-neg-inscripcion",
+    "categoria": "fuera_alcance",
+    "pregunta": "¿Cuánto cuesta la inscripción semestral en la universidad?",
+    "source_hit": null,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.089,
+    "fuentes_top": [
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "Manual de Estadías.pdf",
+      "IngenieriasUTL.pdf",
+      "LicenciaturasUtl.pdf",
+      "LicenciaturasUtl.pdf"
+    ],
+    "espera_sin_contexto": true,
+    "passed": null
+  },
+  {
+    "id": "hard-neg-estacionamiento",
+    "categoria": "fuera_alcance",
+    "pregunta": "¿Hay estacionamiento gratuito para estudiantes en el campus?",
+    "source_hit": null,
+    "keyword_hit": true,
+    "keyword_recall": 1.0,
+    "kw_faltantes": [],
+    "max_score": 0.276,
+    "fuentes_top": [
+      "Mapa UTL.pdf",
+      "Manual de Estadías.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "PODEPE04_B Políticas de Estadías vf.pdf",
+      "Mapa UTL.pdf"
+    ],
+    "espera_sin_contexto": true,
+    "passed": null
+  }
+]
