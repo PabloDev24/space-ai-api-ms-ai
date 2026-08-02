@@ -4,6 +4,7 @@ import re
 from langchain_chroma import Chroma
 
 from app.config import settings
+from app.services import reranker
 from app.services.embeddings import get_embeddings
 
 logger = logging.getLogger(__name__)
@@ -52,56 +53,42 @@ def _get_vectorstore() -> Chroma | None:
     return _vectorstore
 
 
+def _k_recuperacion() -> int:
+    """Cuántos candidatos densos recuperar: un pool amplio si hay reranker, si no el top final."""
+    return settings.rerank_candidatos if settings.rerank_enabled else settings.n_resultados
+
+
 def buscar_contexto(pregunta: str) -> list[str]:
-    vs = _get_vectorstore()
-    if vs is None:
-        return []
-
-    grupo = _detectar_grupo(pregunta)
-    filtro = {"grupo": grupo} if grupo else None
-
-    try:
-        docs = vs.similarity_search(
-            pregunta,
-            k=settings.n_resultados,
-            filter=filtro,
-        )
-        # Si el filtro por grupo no devuelve resultados, busca sin filtro
-        if not docs and filtro:
-            docs = vs.similarity_search(pregunta, k=settings.n_resultados)
-    except Exception:
-        docs = vs.similarity_search(pregunta, k=settings.n_resultados)
-
-    return [doc.page_content for doc in docs]
+    return [contenido for contenido, _, _ in buscar_contexto_con_metadata(pregunta)]
 
 
 def buscar_contexto_con_metadata(pregunta: str) -> list[tuple[str, dict, float]]:
-    """Como buscar_contexto pero conserva metadata (fuente/pagina/seccion) y score por chunk."""
+    """
+    Recupera contexto conservando metadata (fuente/pagina/seccion) y score por chunk.
+
+    Recupera un pool denso amplio y lo reordena con el reranker cross-encoder, que
+    afina el ranking y calibra mejor el score. Es la única ruta de recuperación:
+    buscar_contexto delega aquí.
+    """
     vs = _get_vectorstore()
     if vs is None:
         return []
 
     grupo = _detectar_grupo(pregunta)
     filtro = {"grupo": grupo} if grupo else None
+    k = _k_recuperacion()
 
     try:
-        resultados = vs.similarity_search_with_relevance_scores(
-            pregunta,
-            k=settings.n_resultados,
-            filter=filtro,
-        )
+        resultados = vs.similarity_search_with_relevance_scores(pregunta, k=k, filter=filtro)
         if not resultados and filtro:
-            resultados = vs.similarity_search_with_relevance_scores(
-                pregunta, k=settings.n_resultados
-            )
+            resultados = vs.similarity_search_with_relevance_scores(pregunta, k=k)
     except Exception:
-        resultados = vs.similarity_search_with_relevance_scores(
-            pregunta, k=settings.n_resultados
-        )
+        resultados = vs.similarity_search_with_relevance_scores(pregunta, k=k)
 
-    return [
+    candidatos = [
         (doc.page_content, doc.metadata, max(0.0, min(1.0, score))) for doc, score in resultados
     ]
+    return reranker.rerank(pregunta, candidatos)
 
 
 def collection_info() -> dict:

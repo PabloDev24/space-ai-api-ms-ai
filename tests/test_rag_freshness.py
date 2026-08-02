@@ -21,6 +21,9 @@ def test_cold_start_ve_documentos_ingestados_sin_reiniciar(tmp_path, monkeypatch
     from app import config
 
     monkeypatch.setattr(config.settings, "chroma_path", str(chroma_dir))
+    # Este test es de frescura del índice, no del reranker: desactívalo para no
+    # descargar el modelo cross-encoder (1.11GB) ni añadir latencia de red aquí.
+    monkeypatch.setattr(config.settings, "rerank_enabled", False)
     from app.services import embeddings, rag
 
     monkeypatch.setattr(embeddings.settings, "chroma_path", str(chroma_dir))
