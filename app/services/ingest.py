@@ -180,6 +180,54 @@ def _chunks_desde_docling(conv_res: Any, nombre: str, grupo: str) -> list[Docume
     return docs
 
 
+def _tabla_a_frases_genericas(matriz: list, nombre: str, seccion: str = "") -> list[str]:
+    """
+    Convierte una tabla de datos (no horario) en una frase por fila, con pares
+    cabecera:valor. Cada fila queda recuperable de forma independiente, en vez de
+    embeber toda la tabla como un bloque que pierde la relación fila↔columna.
+    Devuelve [] si la matriz es una cuadrícula de horario (tiene su propia ruta).
+    """
+    if not matriz or len(matriz) < 2:
+        return []
+    cabecera = [str(c).strip() for c in matriz[0]]
+    if _es_cabecera_horario(cabecera):
+        return []
+
+    pref = f"En {nombre}" + (f", sección {seccion}" if seccion else "")
+    frases: list[str] = []
+    for fila in matriz[1:]:
+        pares = [
+            f"{cabecera[i]}: {str(valor).strip()}"
+            for i, valor in enumerate(fila)
+            if i < len(cabecera) and cabecera[i] and not _es_celda_vacia(str(valor))
+        ]
+        if pares:
+            frases.append(f"{pref}: {'; '.join(pares)}.")
+    return frases
+
+
+def _procesar_tablas_genericas(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
+    docs: list[Document] = []
+    for table in getattr(conv_res.document, "tables", []) or []:
+        try:
+            matriz = _tabla_docling_a_matriz(table, conv_res.document)
+        except Exception as exc:
+            logger.warning("No se pudo convertir una tabla de Docling: %s", exc)
+            continue
+        try:
+            seccion = (table.caption_text(conv_res.document) or "").strip()
+        except Exception:
+            seccion = ""
+        docs.extend(
+            Document(
+                page_content=frase,
+                metadata={"fuente": nombre, "grupo": grupo, "tipo": "tabla", "parser": "docling"},
+            )
+            for frase in _tabla_a_frases_genericas(matriz, nombre, seccion)
+        )
+    return docs
+
+
 def _chunks_markdown_desde_docling(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
     md_texto = conv_res.document.export_to_markdown()
     if not md_texto.strip():
@@ -457,7 +505,11 @@ def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
         return docs_horario
 
     try:
+        # Aditivo: se conserva el chunk de tabla de Docling (buen contexto de sección) y
+        # se añaden frases por fila para que cada fila de una tabla de datos sea
+        # recuperable con precisión. La duplicación es menor y el reranker la resuelve.
         chunks = _chunks_desde_docling(conv_res, nombre, grupo)
+        chunks += _procesar_tablas_genericas(conv_res, nombre, grupo)
     except Exception:
         chunks = _chunks_markdown_desde_docling(conv_res, nombre, grupo)
 
