@@ -36,7 +36,7 @@ from pathlib import Path
 # Permite ejecutar como `python scripts/evaluate.py` desde la raíz del proyecto.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.services.rag import buscar_contexto_con_metadata  # noqa: E402
+from app.services.rag import buscar_contexto_con_metadata
 
 GOLDEN_PATH = Path(__file__).resolve().parent.parent / "eval" / "golden_set.jsonl"
 
@@ -105,7 +105,7 @@ def _evaluar_e2e(caso: dict, resultado: dict) -> dict:
     prompt = f"Información relacionada:\n{contexto}\n\nPregunta de la persona: {caso['pregunta']}"
     try:
         respuesta = generate(prompt)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         resultado["e2e_error"] = str(exc)
         resultado["e2e_passed"] = False
         return resultado
@@ -124,7 +124,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Evalúa el RAG contra el set dorado.")
     parser.add_argument("--k", type=int, default=8, help="top-k de recuperación (default 8)")
     parser.add_argument("--e2e", action="store_true", help="además llama al LLM (consume API)")
-    parser.add_argument("--json", type=str, default="", help="vuelca resultados crudos a un archivo")
+    parser.add_argument("--json", type=str, default="", help="vuelca resultados crudos a archivo")
     args = parser.parse_args()
 
     casos = _cargar_golden(GOLDEN_PATH)
@@ -166,10 +166,13 @@ def main() -> int:
     recall_prom = sum(r["keyword_recall"] for r in puntuados) / total if total else 0.0
 
     print("\n=== Resumen recuperación ===")
-    print(f"  pass (fuente+keywords) : {passed}/{total}  ({passed / total:.0%})" if total else "  sin casos")
-    print(f"  source_hit@{args.k:<12}: {src}/{total}  ({src / total:.0%})" if total else "")
-    print(f"  keyword_hit (todas)    : {kw}/{total}  ({kw / total:.0%})" if total else "")
-    print(f"  keyword_recall (prom)  : {recall_prom:.0%}")
+    if not total:
+        print("  sin casos puntuables")
+    else:
+        print(f"  pass (fuente+keywords) : {passed}/{total}  ({passed / total:.0%})")
+        print(f"  source_hit@{args.k:<12}: {src}/{total}  ({src / total:.0%})")
+        print(f"  keyword_hit (todas)    : {kw}/{total}  ({kw / total:.0%})")
+        print(f"  keyword_recall (prom)  : {recall_prom:.0%}")
 
     # Por categoría
     por_cat: dict[str, list] = defaultdict(list)
@@ -183,10 +186,12 @@ def main() -> int:
     if args.e2e:
         e2e_casos = [r for r in resultados if "e2e_passed" in r]
         e2e_pass = sum(1 for r in e2e_casos if r["e2e_passed"])
-        print(f"\n=== Resumen e2e (LLM) === {e2e_pass}/{len(e2e_casos)}  ({e2e_pass / len(e2e_casos):.0%})")
+        pct = e2e_pass / len(e2e_casos) if e2e_casos else 0.0
+        print(f"\n=== Resumen e2e (LLM) === {e2e_pass}/{len(e2e_casos)}  ({pct:.0%})")
 
     if args.json:
-        Path(args.json).write_text(json.dumps(resultados, ensure_ascii=False, indent=2), encoding="utf-8")
+        crudos = json.dumps(resultados, ensure_ascii=False, indent=2)
+        Path(args.json).write_text(crudos, encoding="utf-8")
         print(f"\nResultados crudos -> {args.json}")
 
     # Código de salida: 0 si todo pasa, 1 si hay fallos (útil para CI).
