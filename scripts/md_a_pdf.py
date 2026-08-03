@@ -20,14 +20,14 @@ Uso:
 mapa.json: {"archivo.md": "Nombre de salida.pdf", ...}
 """
 
-import subprocess
+import subprocess  # nosec B404 -- aislar cada conversión en su proceso, ver docstring
 import sys
 from pathlib import Path
 
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_B = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-_WORKER = '''
+_WORKER = """
 import sys
 from fpdf import FPDF
 
@@ -64,11 +64,13 @@ for raw in open(md_path, encoding="utf-8").read().splitlines():
     pdf.set_x(pdf.l_margin)
 
 pdf.output(pdf_path)
-'''
+"""
 
 
 def convertir(md_path: Path, pdf_path: Path) -> None:
-    subprocess.run(
+    # Lista fija (sin shell); los argumentos son rutas locales de
+    # docs/_fotos/_transcrito, no entrada de usuario/red.
+    subprocess.run(  # nosec B603
         [sys.executable, "-c", _WORKER, str(md_path), str(pdf_path), FONT, FONT_B],
         check=True,
     )
