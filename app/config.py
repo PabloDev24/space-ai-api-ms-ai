@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     collection_name: str = "documentos"
     n_resultados: int = 8
 
+    # Archivo del PDF original en Azure Blob (trazabilidad / re-index / descarga).
+    # Si blob_connection_string está vacío, el archivado se omite (no rompe la ingesta).
+    blob_connection_string: str = ""
+    blob_container: str = "documents"
+
+    # Auth del endpoint /ingest. Si está vacío, el endpoint queda abierto (solo dev/demo);
+    # si tiene valor, se exige la cabecera X-API-Key con ese valor.
+    ingest_api_key: str = ""
+
     # Reranker cross-encoder (reordena los candidatos densos; mejora ranking y calibración)
     rerank_enabled: bool = True
     rerank_model: str = "jinaai/jina-reranker-v2-base-multilingual"
