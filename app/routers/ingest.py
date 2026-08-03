@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.services.blob import subir_pdf
-from app.services.ingest import indexar_pdf
+from app.services.ingest import indexar_pdf, listar_documentos
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,19 @@ class IngestResponse(BaseModel):
     chunks_indexados: int
     mensaje: str
     archivado_en: str | None = None
+
+
+class DocumentoIndexado(BaseModel):
+    archivo: str
+    chunks: int
+    tipos: list[str]
+
+
+# Sin auth, igual que /ask: el único caller es el backend .NET por red interna,
+# no un navegador. No expone contenido, solo nombres de archivo y conteos.
+@router.get("/documents", response_model=list[DocumentoIndexado])
+async def listar_documentos_endpoint():
+    return listar_documentos()
 
 
 @router.post("/ingest", response_model=IngestResponse, dependencies=[Depends(verificar_api_key)])
