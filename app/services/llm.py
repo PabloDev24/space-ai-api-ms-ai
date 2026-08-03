@@ -48,7 +48,9 @@ def _build_gemini() -> Callable[[str], str]:
     model = genai.GenerativeModel(modelo, system_instruction=_INSTRUCCION_SISTEMA)
 
     def generate(prompt: str) -> str:
-        return model.generate_content(prompt).text
+        return model.generate_content(
+            prompt, request_options={"timeout": settings.llm_timeout_seconds}
+        ).text
 
     return generate
 
@@ -57,7 +59,12 @@ def _build_openai_compatible(api_key: str, base_url: str | None) -> Callable[[st
     from openai import OpenAI
 
     modelo = settings.modelo or _MODELOS_DEFAULT.get(settings.proveedor, "gpt-4o-mini")
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=settings.llm_timeout_seconds,
+        max_retries=1,
+    )
 
     def generate(prompt: str) -> str:
         response = client.chat.completions.create(

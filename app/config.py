@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     modelo: str = ""
     modelo_gemini: str = "gemini-2.5-flash"  # compatibilidad con .env existente
 
+    # Timeout duro para la llamada al LLM. Sin esto, un proveedor que se cuelga
+    # (red lenta, rate limit sin respuesta de error) deja la petición colgada
+    # indefinidamente y, al ser un solo worker, tumba /ask y /health para todos
+    # los demás usuarios hasta reiniciar el proceso.
+    llm_timeout_seconds: float = 30.0
+
     # Embeddings: local | openai | gemini
     embedding_provider: str = "local"
     embedding_model: str = ""  # usa el default del proveedor si está vacío
