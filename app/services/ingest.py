@@ -180,6 +180,54 @@ def _chunks_desde_docling(conv_res: Any, nombre: str, grupo: str) -> list[Docume
     return docs
 
 
+def _tabla_a_frases_genericas(matriz: list, nombre: str, seccion: str = "") -> list[str]:
+    """
+    Convierte una tabla de datos (no horario) en una frase por fila, con pares
+    cabecera:valor. Cada fila queda recuperable de forma independiente, en vez de
+    embeber toda la tabla como un bloque que pierde la relación fila↔columna.
+    Devuelve [] si la matriz es una cuadrícula de horario (tiene su propia ruta).
+    """
+    if not matriz or len(matriz) < 2:
+        return []
+    cabecera = [str(c).strip() for c in matriz[0]]
+    if _es_cabecera_horario(cabecera):
+        return []
+
+    pref = f"En {nombre}" + (f", sección {seccion}" if seccion else "")
+    frases: list[str] = []
+    for fila in matriz[1:]:
+        pares = [
+            f"{cabecera[i]}: {str(valor).strip()}"
+            for i, valor in enumerate(fila)
+            if i < len(cabecera) and cabecera[i] and not _es_celda_vacia(str(valor))
+        ]
+        if pares:
+            frases.append(f"{pref}: {'; '.join(pares)}.")
+    return frases
+
+
+def _procesar_tablas_genericas(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
+    docs: list[Document] = []
+    for table in getattr(conv_res.document, "tables", []) or []:
+        try:
+            matriz = _tabla_docling_a_matriz(table, conv_res.document)
+        except Exception as exc:
+            logger.warning("No se pudo convertir una tabla de Docling: %s", exc)
+            continue
+        try:
+            seccion = (table.caption_text(conv_res.document) or "").strip()
+        except Exception:
+            seccion = ""
+        docs.extend(
+            Document(
+                page_content=frase,
+                metadata={"fuente": nombre, "grupo": grupo, "tipo": "tabla", "parser": "docling"},
+            )
+            for frase in _tabla_a_frases_genericas(matriz, nombre, seccion)
+        )
+    return docs
+
+
 def _chunks_markdown_desde_docling(conv_res: Any, nombre: str, grupo: str) -> list[Document]:
     md_texto = conv_res.document.export_to_markdown()
     if not md_texto.strip():
@@ -235,6 +283,7 @@ def _procesar_horario_docling(conv_res: Any, nombre: str, grupo: str) -> list[Do
     docentes = _extraer_docentes(tablas)
     for tabla in tablas:
         frases.extend(_horario_a_frases(tabla, grupo, docentes))
+        frases.extend(_horario_por_dia_a_frases(tabla, grupo, docentes))
 
     return [
         Document(
@@ -410,6 +459,52 @@ def _horario_a_frases(tabla: list, grupo: str, docentes: dict[str, str] | None =
     return frases
 
 
+def _horario_por_dia_a_frases(
+    tabla: list, grupo: str, docentes: dict[str, str] | None = None
+) -> list[str]:
+    """
+    Una frase por (grupo, día) que agrega TODAS las clases de ese día.
+
+    Complementa a `_horario_a_frases` (una por franja): las consultas del tipo
+    "¿qué clases tengo el sábado?" necesitan cobertura completa del día, que los
+    chunks por franja no dan porque varios slots casi idénticos de una misma materia
+    copan el top-k y dejan fuera a las demás.
+    """
+    if not tabla or not _es_cabecera_horario(tabla[0]):
+        return []
+
+    cabecera = [str(c).strip() if c else "" for c in tabla[0]]
+    cols_dia = {i: cabecera[i] for i, c in enumerate(cabecera) if c.lower() in DIAS_SEMANA}
+    idx_horas = next(
+        (i for i, c in enumerate(cabecera) if c.lower() in ("horas", "hora")),
+        None,
+    )
+
+    por_dia: dict[str, list[str]] = {dia: [] for dia in cols_dia.values()}
+    for fila in tabla[1:]:
+        if not fila or _es_cabecera_horario(fila):
+            continue
+        horas = ""
+        if idx_horas is not None and idx_horas < len(fila):
+            horas = str(fila[idx_horas]).strip()
+        if not re.search(r"\d{1,2}:\d{2}", horas):
+            continue
+        for idx, dia in cols_dia.items():
+            if idx >= len(fila):
+                continue
+            valor = str(fila[idx]).strip() if fila[idx] else ""
+            if _es_celda_vacia(valor):
+                continue
+            clase = _formatear_celda(valor, docentes)
+            if clase:
+                por_dia[dia].append(f"{horas} {clase}")
+
+    pref = f"Grupo {grupo}. " if grupo else ""
+    return [
+        f"{pref}Clases del {dia}: {'; '.join(clases)}." for dia, clases in por_dia.items() if clases
+    ]
+
+
 def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
     """
     Extrae tablas de horario con pdfplumber y las convierte en frases naturales.
@@ -428,6 +523,7 @@ def _procesar_horario(ruta: str, nombre: str, grupo: str) -> list[Document]:
     docentes = _extraer_docentes(tablas)
     for tabla in tablas:
         frases.extend(_horario_a_frases(tabla, grupo, docentes))
+        frases.extend(_horario_por_dia_a_frases(tabla, grupo, docentes))
 
     return [
         Document(
@@ -457,7 +553,11 @@ def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
         return docs_horario
 
     try:
+        # Aditivo: se conserva el chunk de tabla de Docling (buen contexto de sección) y
+        # se añaden frases por fila para que cada fila de una tabla de datos sea
+        # recuperable con precisión. La duplicación es menor y el reranker la resuelve.
         chunks = _chunks_desde_docling(conv_res, nombre, grupo)
+        chunks += _procesar_tablas_genericas(conv_res, nombre, grupo)
     except Exception:
         chunks = _chunks_markdown_desde_docling(conv_res, nombre, grupo)
 

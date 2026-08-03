@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     collection_name: str = "documentos"
     n_resultados: int = 8
 
+    # Reranker cross-encoder (reordena los candidatos densos; mejora ranking y calibración)
+    rerank_enabled: bool = True
+    rerank_model: str = "jinaai/jina-reranker-v2-base-multilingual"
+    rerank_candidatos: int = 20  # pool denso a recuperar antes de rerankear
+    rerank_top_n: int = 5  # cuántos quedan tras rerankear
+
     # Docling PDF parsing
     docling_enable_ocr: bool = True
     docling_enable_tables: bool = True
