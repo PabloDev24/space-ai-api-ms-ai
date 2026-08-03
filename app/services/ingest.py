@@ -14,7 +14,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.config import settings
+from app.config import PREFIJOS_GRUPO, settings
 from app.services.embeddings import get_embeddings
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,22 @@ _LABEL_TIPOS = {
 }
 
 
+_PATRON_GRUPO_CON_PREFIJO = re.compile(
+    r"\b(" + "|".join(PREFIJOS_GRUPO) + r")\s?(\d{3,4})([a-z]{0,6})\b",
+    re.IGNORECASE,
+)
+
+
 def _extraer_grupo(nombre_archivo: str) -> str:
+    """
+    Un número suelto ("905") es ambiguo entre grupos de distintas carreras
+    (IMT905, ISP905, IDGS905...), así que si el nombre trae el prefijo hay que
+    usarlo completo; si no, se conserva el comportamiento previo (solo dígitos).
+    """
+    match = _PATRON_GRUPO_CON_PREFIJO.search(nombre_archivo)
+    if match:
+        prefijo, digitos, sufijo = match.groups()
+        return f"{prefijo.upper()}{digitos}{sufijo.upper()}"
     match = re.search(r"(\d{3,4})", nombre_archivo)
     return match.group(1) if match else ""
 
@@ -419,6 +434,20 @@ def _formatear_celda(valor: str, docentes: dict[str, str] | None = None) -> str:
     return frase
 
 
+def _etiqueta_grupo(grupo: str) -> str:
+    """
+    Grupo para el TEXTO embebido ("Grupo 901. Lunes..."), separado del grupo
+    usado en metadata para el filtro. Metadata necesita el código completo con
+    prefijo (IDGS901) para no cruzarse con otras carreras que comparten los
+    mismos dígitos, pero repetir ese prefijo en cada frase cambia el embedding
+    de chunks que antes tenían buen ranking (ej. el chunk agregado por día
+    frente a los chunks por franja, un margen ya de por sí ajustado) sin
+    aportar nada: el filtro de metadata ya resuelve la ambigüedad.
+    """
+    match = re.search(r"\d{3,4}", grupo)
+    return match.group(0) if match else grupo
+
+
 def _horario_a_frases(tabla: list, grupo: str, docentes: dict[str, str] | None = None) -> list[str]:
     """
     Convierte una tabla de horario (extraída por pdfplumber) en frases naturales,
@@ -437,7 +466,7 @@ def _horario_a_frases(tabla: list, grupo: str, docentes: dict[str, str] | None =
     )
 
     frases = []
-    pref = f"Grupo {grupo}. " if grupo else ""
+    pref = f"Grupo {_etiqueta_grupo(grupo)}. " if grupo else ""
     for fila in tabla[1:]:
         if not fila or _es_cabecera_horario(fila):
             continue
@@ -499,7 +528,7 @@ def _horario_por_dia_a_frases(
             if clase:
                 por_dia[dia].append(f"{horas} {clase}")
 
-    pref = f"Grupo {grupo}. " if grupo else ""
+    pref = f"Grupo {_etiqueta_grupo(grupo)}. " if grupo else ""
     return [
         f"{pref}Clases del {dia}: {'; '.join(clases)}." for dia, clases in por_dia.items() if clases
     ]

@@ -3,7 +3,7 @@ import re
 
 from langchain_chroma import Chroma
 
-from app.config import settings
+from app.config import PREFIJOS_GRUPO, settings
 from app.services import reranker
 from app.services.embeddings import get_embeddings
 
@@ -11,10 +11,37 @@ logger = logging.getLogger(__name__)
 
 _PATRON_GRUPO = re.compile(r"\b(?:IDGS|grupo\s*)?(\d{3,4})\b", re.IGNORECASE)
 
+# "901" solo es ambiguo entre grupos de distintas carreras (IDGS901, LGA901...):
+# si la pregunta trae el prefijo, hay que usarlo completo como filtro.
+_PATRON_GRUPO_CON_PREFIJO = re.compile(
+    r"\b(" + "|".join(PREFIJOS_GRUPO) + r")\s?(\d{3,4})([a-z]{0,6})\b",
+    re.IGNORECASE,
+)
+
 
 def _detectar_grupo(pregunta: str) -> str | None:
+    match = _PATRON_GRUPO_CON_PREFIJO.search(pregunta)
+    if match:
+        prefijo, digitos, sufijo = match.groups()
+        return f"{prefijo.upper()}{digitos}{sufijo.upper()}"
     match = _PATRON_GRUPO.search(pregunta)
     return match.group(1) if match else None
+
+
+def _filtro_grupo(pregunta: str) -> dict | None:
+    """
+    Si la pregunta trae prefijo (LGA901...), el código es inequívoco: igualdad
+    exacta. Si solo trae dígitos sueltos ("grupo 901"), son ambiguos entre
+    carreras (IDGS901, LGA901, LGDT901...), así que se filtra por cualquier
+    variante conocida con esos dígitos en vez de perder el filtro por completo.
+    """
+    grupo = _detectar_grupo(pregunta)
+    if not grupo:
+        return None
+    if grupo.isdigit():
+        candidatos = [grupo] + [f"{p}{grupo}" for p in PREFIJOS_GRUPO]
+        return {"grupo": {"$in": candidatos}}
+    return {"grupo": grupo}
 
 
 def _load_vectorstore() -> Chroma | None:
@@ -72,8 +99,7 @@ def buscar_contexto_con_metadata(pregunta: str) -> list[tuple[str, dict, float]]
     if vs is None:
         return []
 
-    grupo = _detectar_grupo(pregunta)
-    filtro = {"grupo": grupo} if grupo else None
+    filtro = _filtro_grupo(pregunta)
     k = _k_recuperacion()
 
     try:

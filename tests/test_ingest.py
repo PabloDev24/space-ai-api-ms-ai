@@ -48,7 +48,10 @@ class _FakeChunker:
 
 
 def test_extraer_grupo_desde_nombre_archivo():
-    assert ingest._extraer_grupo("IDGS901.pdf") == "901"
+    # "901" a secas es ambiguo entre carreras (IDGS901, LGA901...): el nombre
+    # de archivo trae el prefijo real y hay que conservarlo completo.
+    assert ingest._extraer_grupo("IDGS901.pdf") == "IDGS901"
+    assert ingest._extraer_grupo("Horario de Grupo IMT905 SITO.pdf") == "IMT905"
     assert ingest._extraer_grupo("reglamento_general.pdf") == ""
 
 

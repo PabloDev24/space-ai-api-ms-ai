@@ -1,5 +1,29 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Prefijos de código de grupo (carrera) usados en los horarios. Un número
+# suelto como "905" es ambiguo entre grupos de distintas carreras (IMT905,
+# ISP905, IDGS905...), así que tanto la ingesta (para leer el código completo
+# del nombre de archivo) como la búsqueda (para detectar el grupo en la
+# pregunta) deben usar el código con prefijo, no solo los dígitos.
+PREFIJOS_GRUPO = (
+    "AUT",
+    "GAST",
+    "IDGS",
+    "IEVN",
+    "IMT",
+    "ISMF",
+    "ISP",
+    "LDGR",
+    "LGA",
+    "LGCH",
+    "LGDT",
+    "LIMI",
+    "LNM",
+    "LTM",
+    "LTU",
+    "MOP",
+)
+
 
 class Settings(BaseSettings):
     # Proveedor activo: gemini | groq | openai
