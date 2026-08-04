@@ -593,6 +593,36 @@ def procesar_pdf(ruta: str, nombre: str) -> list[Document]:
     return chunks
 
 
+def listar_documentos() -> list[dict[str, Any]]:
+    """
+    Agrupa los chunks indexados en ChromaDB por archivo fuente.
+
+    El panel de administración (Asistente IA) no tiene otra forma de saber qué
+    hay realmente indexado: los documentos pueden llegar por /ingest sin pasar
+    por ese panel, así que su catálogo propio queda desincronizado.
+    """
+    vectorstore = Chroma(
+        collection_name=settings.collection_name,
+        embedding_function=get_embeddings(),
+        persist_directory=settings.chroma_path,
+    )
+    coleccion = vectorstore.get(include=["metadatas"])
+    metadatas = coleccion.get("metadatas") or []
+
+    por_archivo: dict[str, dict[str, Any]] = {}
+    for meta in metadatas:
+        nombre = meta.get("fuente") or "desconocido"
+        entrada = por_archivo.setdefault(nombre, {"archivo": nombre, "chunks": 0, "tipos": set()})
+        entrada["chunks"] += 1
+        if meta.get("tipo"):
+            entrada["tipos"].add(meta["tipo"])
+
+    return [
+        {"archivo": nombre, "chunks": datos["chunks"], "tipos": sorted(datos["tipos"])}
+        for nombre, datos in sorted(por_archivo.items())
+    ]
+
+
 def indexar_pdf(ruta_archivo: str, nombre_archivo: str) -> int:
     """
     Procesa un PDF y guarda sus chunks en ChromaDB.
