@@ -623,6 +623,105 @@ def listar_documentos() -> list[dict[str, Any]]:
     ]
 
 
+def _convertir_url_con_docling(url: str):
+    """
+    Convierte una página web usando el mismo DocumentConverter que los PDFs.
+
+    Docling acepta una URL como `source` y devuelve el mismo DoclingDocument, así que
+    el chunking, los metadatos y las tablas se reutilizan tal cual. Se declara
+    InputFormat.HTML de forma explícita para que una URL que sirva HTML no sea
+    rechazada por el converter configurado solo para PDF.
+    """
+    try:
+        from docling.datamodel.base_models import InputFormat
+        from docling.document_converter import DocumentConverter
+    except ImportError as exc:
+        raise RuntimeError(
+            "Docling no está instalado. Ejecuta `pip install -r requirements.txt`."
+        ) from exc
+
+    converter = DocumentConverter(allowed_formats=[InputFormat.HTML, InputFormat.PDF])
+    return converter.convert(source=url)
+
+
+def procesar_url(url: str, nombre: str) -> list[Document]:
+    """
+    Extrae el contenido de una página web y lo convierte en chunks indexables.
+
+    No pasa por `_procesar_horario`: esa ruta depende de la cuadrícula tabular que
+    pdfplumber lee de un PDF y no tiene equivalente en una página web.
+    """
+    grupo = _extraer_grupo(nombre)
+    conv_res = _convertir_url_con_docling(url)
+
+    try:
+        chunks = _chunks_desde_docling(conv_res, nombre, grupo)
+        chunks += _procesar_tablas_genericas(conv_res, nombre, grupo)
+    except Exception:
+        chunks = _chunks_markdown_desde_docling(conv_res, nombre, grupo)
+
+    # La URL de origen viaja en cada chunk para poder citar la fuente real, que en
+    # una página web no se deduce del nombre como sí ocurre con un archivo.
+    for chunk in chunks:
+        chunk.metadata["url"] = url
+
+    return chunks
+
+
+def indexar_url(url: str, nombre_archivo: str) -> int:
+    """
+    Indexa el contenido de una página web en ChromaDB.
+
+    Misma idempotencia que `indexar_pdf`: reindexar la misma fuente reemplaza sus
+    chunks en vez de duplicarlos.
+
+    Returns:
+        Número de chunks indexados.
+    """
+    chunks = procesar_url(url, nombre_archivo)
+    if not chunks:
+        return 0
+
+    vectorstore = Chroma(
+        collection_name=settings.collection_name,
+        embedding_function=get_embeddings(),
+        persist_directory=settings.chroma_path,
+    )
+
+    try:
+        vectorstore.delete(where={"fuente": nombre_archivo})
+    except Exception as exc:
+        logger.debug("No se pudieron borrar chunks previos de %s: %s", nombre_archivo, exc)
+
+    vectorstore.add_documents(chunks)
+    return len(chunks)
+
+
+def eliminar_documento(nombre_archivo: str) -> int:
+    """
+    Borra de ChromaDB todos los chunks de una fuente.
+
+    Lo consume el panel de administración al eliminar un documento: sin esto el
+    archivo desaparece del catálogo pero el RAG lo sigue citando en sus respuestas.
+
+    Returns:
+        Número de chunks eliminados.
+    """
+    vectorstore = Chroma(
+        collection_name=settings.collection_name,
+        embedding_function=get_embeddings(),
+        persist_directory=settings.chroma_path,
+    )
+
+    existentes = vectorstore.get(where={"fuente": nombre_archivo}, include=[])
+    total = len(existentes.get("ids") or [])
+    if total == 0:
+        return 0
+
+    vectorstore.delete(where={"fuente": nombre_archivo})
+    return total
+
+
 def indexar_pdf(ruta_archivo: str, nombre_archivo: str) -> int:
     """
     Procesa un PDF y guarda sus chunks en ChromaDB.
